@@ -1,0 +1,2128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grade 9 FAST Reading Simulator &mdash; Form 1</title>
+<style>
+:root{
+  --bg:#f4f6fa; --panel:#ffffff; --ink:#15213a; --muted:#5a6580;
+  --line:#dfe4ee; --accent:#1f5fbf; --accent-soft:#e8f0fd;
+  --good:#0f7b52; --good-soft:#e3f5ec; --bad:#b3261e; --bad-soft:#fdeceb;
+  --warn:#9a6700; --warn-soft:#fff6e0; --mark:#ffe694; --evid:#b8e6c8;
+  --shadow:0 1px 3px rgba(20,30,60,.08),0 6px 20px rgba(20,30,60,.06);
+  --radius:12px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  font-family:"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;
+  background:var(--bg); color:var(--ink); font-size:16px; line-height:1.55;
+  -webkit-text-size-adjust:100%;
+}
+button{font:inherit;color:inherit}
+h1,h2,h3{line-height:1.25;margin:0 0 .4em}
+
+/* ---------- top bar ---------- */
+#topbar{
+  position:sticky; top:0; z-index:30; background:#12203c; color:#fff;
+  display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+  padding:10px 16px; box-shadow:0 2px 10px rgba(0,0,0,.18);
+}
+#topbar .brand{font-weight:700; letter-spacing:.2px; font-size:15px; margin-right:auto}
+#topbar .brand small{display:block;font-weight:400;opacity:.72;font-size:11.5px;letter-spacing:.4px;text-transform:uppercase}
+.pill{
+  background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.22);
+  border-radius:999px; padding:5px 13px; font-size:13.5px; font-variant-numeric:tabular-nums;
+  display:inline-flex; align-items:center; gap:7px; white-space:nowrap;
+}
+.pill.mode{background:#2d6fd6;border-color:#5b93e6}
+.pill b{font-weight:700}
+.tbtn{
+  background:rgba(255,255,255,.1); color:#fff; border:1px solid rgba(255,255,255,.28);
+  border-radius:8px; padding:6px 12px; font-size:13.5px; cursor:pointer;
+}
+.tbtn:hover{background:rgba(255,255,255,.22)}
+.tbtn.primary{background:#2d6fd6;border-color:#2d6fd6}
+.tbtn.primary:hover{background:#3f80e6}
+
+#progwrap{height:5px;background:#0b1730}
+#progbar{height:100%;width:0;background:linear-gradient(90deg,#4a9bff,#7ad3a8);transition:width .3s}
+
+/* ---------- layout ---------- */
+.wrap{max-width:1400px;margin:0 auto;padding:16px}
+#split{display:flex;align-items:flex-start;gap:0}
+#passagePane{flex:0 0 var(--split,50%);min-width:0}
+#questionPane{flex:1 1 0;min-width:0}
+#dragbar{
+  flex:0 0 16px;align-self:stretch;cursor:col-resize;position:relative;
+  display:flex;align-items:center;justify-content:center;touch-action:none;
+}
+#dragbar::before{content:"";width:3px;height:44px;border-radius:2px;background:#cbd5e6;transition:background .15s}
+#dragbar:hover::before,#dragbar:focus-visible::before,#dragbar.dragging::before{background:var(--accent);height:70px}
+#dragbar:focus-visible{outline:2px solid var(--accent);outline-offset:-4px;border-radius:6px}
+body.resizing{cursor:col-resize;user-select:none}
+#split.only-pass #questionPane,#split.only-pass #dragbar{display:none}
+#split.only-pass #passagePane{flex:1 1 100%}
+#split.only-q #passagePane,#split.only-q #dragbar{display:none}
+
+.viewctl{display:inline-flex;border:1px solid rgba(255,255,255,.28);border-radius:8px;overflow:hidden}
+.viewctl button{
+  background:rgba(255,255,255,.08);color:#fff;border:0;border-right:1px solid rgba(255,255,255,.22);
+  padding:6px 11px;font-size:12.5px;cursor:pointer;white-space:nowrap;
+}
+.viewctl button:last-child{border-right:0}
+.viewctl button:hover{background:rgba(255,255,255,.22)}
+.viewctl button.on{background:#2d6fd6}
+
+/* ---------- benchmark picker ---------- */
+.bmwrap{border:1.5px solid var(--line);border-radius:12px;overflow:hidden;margin-top:10px}
+.bmtop{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:10px 14px;background:#f5f8fd;border-bottom:1px solid var(--line);font-size:14.5px;
+}
+.bmtop b{font-size:15px}
+.bmcount{margin-left:auto;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums}
+.bmgroup{border-bottom:1px solid var(--line)}
+.bmgroup:last-child{border-bottom:0}
+.bmghead{
+  display:flex;align-items:center;gap:10px;padding:9px 14px;background:#fbfcfe;
+  font-weight:600;font-size:14.5px;cursor:pointer;
+}
+.bmghead .n{margin-left:auto;font-size:12.5px;color:var(--muted);font-weight:400}
+.bmrow{display:flex;align-items:center;gap:10px;padding:7px 14px 7px 40px;font-size:14px}
+.bmrow:hover{background:#fafcff}
+.bmrow code{background:#eef1f7;border-radius:5px;padding:1px 6px;font-size:12.5px;font-weight:700}
+.bmrow .n{margin-left:auto;font-size:12.5px;color:var(--muted)}
+.bmwrap.off{opacity:.45;pointer-events:none}
+.bmnote{font-size:13.5px;color:var(--muted);margin-top:8px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+.panel-head{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:12px 16px;border-bottom:1px solid var(--line);
+  position:sticky;top:0;background:var(--panel);border-radius:var(--radius) var(--radius) 0 0;z-index:5;
+}
+.panel-head h2{font-size:16px;margin:0;flex:1 1 auto}
+.panel-body{padding:16px 18px}
+#passagePane .panel-body{max-height:calc(100vh - 190px);overflow:auto}
+#questionPane .panel-body{max-height:calc(100vh - 190px);overflow:auto}
+
+/* ---------- passage ---------- */
+.para{display:flex;gap:12px;margin:0 0 14px}
+.para .num{
+  flex:0 0 auto;min-width:22px;text-align:right;color:var(--muted);
+  font-size:12px;padding-top:4px;user-select:none;
+}
+.para .txt{flex:1 1 auto}
+.blockquote{
+  border-left:4px solid var(--accent);background:#f7f9fd;padding:10px 14px;
+  margin:0 0 14px 34px;border-radius:0 8px 8px 0;font-style:italic;
+}
+.introbox{border:1px solid var(--line);background:#f9fafc;border-radius:8px;padding:12px 14px;margin-bottom:16px;font-size:15px}
+.introbox b{display:block;margin-bottom:4px}
+.scan{font-family:"Cambria",Georgia,serif;font-size:17px;letter-spacing:.3px;margin:0 0 4px 34px}
+w{display:inline;border-radius:3px;padding:1px 0}
+w.hl{background:var(--mark);box-shadow:0 0 0 1px #f0cf63}
+w.ev{background:var(--evid);box-shadow:0 0 0 1px #7fc79a}
+w.sel{background:#cfe2ff}
+#passageText{cursor:text}
+#passageText.erasing{cursor:cell}
+
+.tool{
+  border:1px solid var(--line);background:#fff;border-radius:8px;padding:5px 10px;
+  font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;
+}
+.tool:hover{border-color:#b9c4d8;background:#f7f9fd}
+.tool.on{background:var(--mark);border-color:#e2bf4f}
+.swatch{width:12px;height:12px;border-radius:3px;display:inline-block}
+
+/* ---------- question ---------- */
+.qtag{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.tag{font-size:11.5px;letter-spacing:.3px;text-transform:uppercase;font-weight:600;
+  background:var(--accent-soft);color:#1b4d99;border-radius:999px;padding:3px 10px}
+.tag.alt{background:#f0eefb;color:#4b3a99}
+.qnum{font-size:13px;font-weight:700;color:var(--muted);letter-spacing:.6px;text-transform:uppercase}
+.qstem{font-size:17px;margin:6px 0 14px;font-weight:600}
+.qpart{font-size:13.5px;font-weight:700;color:var(--accent);letter-spacing:.5px;text-transform:uppercase;margin-bottom:2px}
+.excerpt{border:1px solid var(--line);background:#f9fafc;border-radius:8px;padding:11px 14px;margin:0 0 14px;font-size:15.5px}
+.hint{font-size:13.5px;color:var(--muted);margin:-6px 0 12px}
+
+.opts{display:flex;flex-direction:column;gap:9px;margin:0 0 16px}
+.opt{
+  display:flex;gap:11px;align-items:flex-start;border:1.5px solid var(--line);
+  background:#fff;border-radius:10px;padding:11px 13px;cursor:pointer;text-align:left;width:100%;
+  transition:border-color .12s,background .12s;
+}
+.opt:hover{border-color:#a9bde0;background:#fafcff}
+.opt .ltr{
+  flex:0 0 auto;width:25px;height:25px;border-radius:50%;border:1.5px solid #c3cddf;
+  display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--muted);
+}
+.opt.multi .ltr{border-radius:6px}
+.opt.picked{border-color:var(--accent);background:var(--accent-soft)}
+.opt.picked .ltr{background:var(--accent);border-color:var(--accent);color:#fff}
+.opt.correct{border-color:var(--good);background:var(--good-soft)}
+.opt.correct .ltr{background:var(--good);border-color:var(--good);color:#fff}
+.opt.wrong{border-color:var(--bad);background:var(--bad-soft)}
+.opt.wrong .ltr{background:var(--bad);border-color:var(--bad);color:#fff}
+.opt[disabled]{cursor:default}
+.opt .otext{flex:1 1 auto}
+
+.feedback{border-radius:10px;padding:13px 15px;margin:0 0 14px;font-size:15px;border:1px solid}
+.feedback.ok{background:var(--good-soft);border-color:#a9ddc3}
+.feedback.no{background:var(--bad-soft);border-color:#f2b8b4}
+.feedback .fhead{font-weight:700;margin-bottom:5px;display:flex;align-items:center;gap:7px}
+.feedback .trap{margin-top:9px;padding-top:9px;border-top:1px dashed rgba(0,0,0,.14);font-size:14.2px}
+.feedback .trap b{color:var(--bad)}
+
+.qfoot{display:flex;gap:9px;flex-wrap:wrap;align-items:center;padding-top:4px}
+.btn{
+  border:1.5px solid var(--line);background:#fff;border-radius:9px;padding:9px 16px;
+  font-size:14.5px;cursor:pointer;font-weight:600;
+}
+.btn:hover{border-color:#a9bde0;background:#f7faff}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{background:#2b70d6;border-color:#2b70d6}
+.btn.ghost{border-style:dashed}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.flagged{background:var(--warn-soft);border-color:#e5c469;color:#7a5200}
+
+/* ---------- navigator ---------- */
+#nav{margin-top:16px}
+.navgrid{display:flex;flex-wrap:wrap;gap:6px}
+.nbtn{
+  width:38px;height:34px;border-radius:8px;border:1.5px solid var(--line);background:#fff;
+  font-size:12.5px;font-weight:700;cursor:pointer;color:var(--muted);position:relative;
+}
+.nbtn:hover{border-color:#a9bde0}
+.nbtn.answered{background:var(--accent-soft);border-color:#9dbdef;color:#1b4d99}
+.nbtn.current{outline:3px solid #b9d3ff;border-color:var(--accent);color:var(--accent)}
+.nbtn.right{background:var(--good-soft);border-color:#8fcfae;color:#0b5c3d}
+.nbtn.wrongm{background:var(--bad-soft);border-color:#eda9a4;color:#8f1e17}
+.nbtn.flag::after{
+  content:"";position:absolute;top:-4px;right:-4px;width:10px;height:10px;border-radius:50%;
+  background:#e0a800;border:2px solid #fff;
+}
+.navlegend{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin-top:10px}
+.navlegend span{display:inline-flex;align-items:center;gap:5px}
+.key{width:13px;height:13px;border-radius:4px;border:1.5px solid var(--line);display:inline-block}
+
+/* ---------- start screen ---------- */
+#start{max-width:880px;margin:28px auto;padding:0 16px}
+.card{background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:26px 28px}
+.modegrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:18px 0}
+.modecard{border:2px solid var(--line);border-radius:12px;padding:16px 18px;cursor:pointer;background:#fff;text-align:left}
+.modecard:hover{border-color:#a9bde0}
+.modecard.sel{border-color:var(--accent);background:var(--accent-soft)}
+.modecard h3{font-size:16.5px;margin:0 0 6px}
+.modecard p{margin:0;font-size:14px;color:var(--muted)}
+.optrow{display:flex;gap:18px;flex-wrap:wrap;align-items:center;margin:14px 0;font-size:15px}
+.optrow label{display:inline-flex;align-items:center;gap:8px;cursor:pointer}
+input[type=checkbox],input[type=radio]{width:17px;height:17px;accent-color:var(--accent)}
+select{font:inherit;padding:6px 9px;border:1.5px solid var(--line);border-radius:8px;background:#fff}
+.mini{font-size:13.5px;color:var(--muted)}
+.passlist{margin:14px 0 0;padding:0;list-style:none;font-size:14.5px}
+.passlist li{padding:7px 0;border-bottom:1px solid var(--line);display:flex;gap:10px}
+.passlist li:last-child{border-bottom:0}
+.passlist .g{flex:0 0 auto;color:var(--muted);font-size:13px;min-width:74px}
+
+/* ---------- results ---------- */
+#results{display:none}
+.scorehero{display:flex;gap:26px;align-items:center;flex-wrap:wrap}
+.ring{position:relative;width:132px;height:132px;flex:0 0 auto}
+.ring svg{transform:rotate(-90deg)}
+.ring .pct{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ring .pct b{font-size:30px;line-height:1}
+.ring .pct span{font-size:12.5px;color:var(--muted)}
+.statgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-top:18px}
+.stat{border:1px solid var(--line);border-radius:10px;padding:11px 13px;background:#fbfcfe}
+.stat b{display:block;font-size:22px;line-height:1.2}
+.stat span{font-size:12.5px;color:var(--muted)}
+
+table.dash{width:100%;border-collapse:collapse;margin-top:8px;font-size:14.5px}
+table.dash th,table.dash td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+table.dash th{font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700}
+.meter{background:#eef1f7;border-radius:999px;height:12px;overflow:hidden;min-width:90px}
+.meter i{display:block;height:100%;border-radius:999px}
+.lvl{font-size:12px;font-weight:700;border-radius:999px;padding:2px 9px;white-space:nowrap}
+.lvl.s{background:var(--good-soft);color:#0b5c3d}
+.lvl.d{background:var(--warn-soft);color:#7a5200}
+.lvl.f{background:var(--bad-soft);color:#8f1e17}
+
+.review-item{border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:12px;background:#fff}
+.review-item.r{border-left:5px solid var(--good)}
+.review-item.w{border-left:5px solid var(--bad)}
+.review-item.u{border-left:5px solid #c3cddf}
+.review-head{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:7px}
+.review-head .qn{font-weight:700}
+.ansline{font-size:14.5px;margin:3px 0}
+.ansline .lab{color:var(--muted);display:inline-block;min-width:115px}
+details.expl{margin-top:9px}
+details.expl summary{cursor:pointer;font-weight:600;font-size:14.5px;color:var(--accent)}
+details.expl .body{padding:9px 0 0;font-size:14.5px}
+
+.section-title{margin:26px 0 10px;font-size:18px;display:flex;align-items:center;gap:10px}
+.section-title::after{content:"";flex:1 1 auto;height:1px;background:var(--line)}
+
+.toast{
+  position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);
+  background:#12203c;color:#fff;padding:11px 18px;border-radius:10px;font-size:14.5px;
+  opacity:0;pointer-events:none;transition:.25s;z-index:80;box-shadow:0 6px 24px rgba(0,0,0,.25);
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ---------- reading supports ---------- */
+w.gl{border-bottom:1.5px dotted #7d92b8;cursor:help}
+w.gl:hover{background:#eaf1fc}
+.noteflag{
+  display:inline-flex;align-items:center;justify-content:center;vertical-align:super;
+  width:15px;height:15px;margin-left:1px;border-radius:50%;border:none;
+  background:#dfe9fb;color:#1b4d99;font-size:10px;font-weight:700;cursor:pointer;line-height:1;
+}
+.noteflag:hover{background:var(--accent);color:#fff}
+#pop{
+  position:absolute;z-index:60;max-width:330px;background:#fff;border:1px solid #c6d2e6;
+  border-radius:11px;box-shadow:0 8px 28px rgba(20,30,60,.20);padding:13px 15px;display:none;
+}
+#pop.show{display:block}
+#pop .pw{font-size:17px;font-weight:700;margin-bottom:2px}
+#pop .ps{font-size:14px;color:var(--muted);margin-bottom:9px}
+#pop .pt{font-size:19px;font-weight:600;color:#12203c;padding:8px 11px;background:#f2f6fd;border-radius:8px}
+#pop .pt[dir=rtl]{text-align:right}
+#pop .pc{margin-top:9px;font-size:13.5px;background:var(--good-soft);border-radius:8px;padding:8px 11px;color:#0b5c3d}
+#pop .pc b{display:block;margin-bottom:2px}
+#pop .pc.pcmini{padding:5px 11px;font-size:13px}
+#pop .pc.pcmini b{display:inline;margin:0}
+#pop .pc.pcmini b::after{content:" · ";font-weight:400;opacity:.6}
+#pop .pn{font-size:14.5px;line-height:1.5}
+#pop .pclose{position:absolute;top:7px;right:9px;border:0;background:none;font-size:17px;color:var(--muted);cursor:pointer;line-height:1}
+#pop .ptag{font-size:11px;text-transform:uppercase;letter-spacing:.5px;font-weight:700;color:var(--accent);margin-bottom:5px}
+
+.supportbar{display:flex;gap:9px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.supportbar .chip{background:#eef3fb;border-radius:999px;padding:3px 10px;font-weight:600;color:#1b4d99}
+
+/* ---------- responsive ---------- */
+@media (max-width:960px){
+  #split{flex-direction:column}
+  #passagePane,#questionPane{flex:1 1 auto;width:100%}
+  #dragbar{display:none}
+  #passagePane .panel-body{max-height:46vh}
+  #questionPane .panel-body{max-height:none}
+  #split.only-pass #questionPane{display:none}
+  #split.only-q #passagePane{display:none}
+  .modegrid{grid-template-columns:1fr}
+  .blockquote,.scan{margin-left:0}
+}
+
+/* ---------- print ---------- */
+@media print{
+  #topbar,#progwrap,#nav,.noprint,#split{display:none !important}
+  body{background:#fff;font-size:12pt}
+  .wrap{max-width:none;padding:0}
+  .panel,.card,.review-item{box-shadow:none;border-color:#999;break-inside:avoid}
+  details.expl{display:none}
+  body.print-expl details.expl{display:block}
+  body.print-expl details.expl summary{display:none}
+  body.print-expl details.expl .body{padding-top:4px}
+  #results{display:block !important}
+  .section-title{break-after:avoid}
+}
+</style>
+</head>
+<body>
+<div id="topbar">
+  <div class="brand">Grade 9 FAST Reading Simulator
+    <small>Form 1 &middot; 6 passages &middot; 38 questions</small></div>
+  <span class="pill mode" id="modePill" hidden>Practice Mode</span>
+  <span class="pill" id="timerPill" hidden>&#9201; <b id="timerText">00:00</b></span>
+  <span class="pill" id="countPill" hidden><b id="countText">0 / 43</b> answered</span>
+  <span class="viewctl" id="viewCtl" hidden>
+    <button data-view="pass" title="Passage only">Passage</button>
+    <button data-view="split" class="on" title="Split view">Split</button>
+    <button data-view="q" title="Questions only">Questions</button>
+  </span>
+  <button class="tbtn" id="btnNavToggle" hidden>Question Map</button>
+  <button class="tbtn primary" id="btnSubmit" hidden>Submit Test</button>
+  <button class="tbtn" id="btnRestart" hidden>Restart</button>
+</div>
+<div id="progwrap"><div id="progbar"></div></div>
+
+<!-- ============ START SCREEN ============ -->
+<div id="start">
+  <div class="card">
+    <h1 style="font-size:26px">Grade 9 FAST Reading &mdash; Form 1 Practice Simulator</h1>
+    <p class="mini" style="margin-top:-4px">Six passages, 38 questions (43 scored parts), aligned to B.E.S.T. Reading &amp; Vocabulary benchmarks.</p>
+
+    <h3 style="margin-top:22px">1. Choose your mode</h3>
+    <div class="modegrid">
+      <button class="modecard sel" data-mode="practice">
+        <h3>&#128218; Practice Mode</h3>
+        <p>Check each answer as you go. You get instant feedback, a full explanation, and the exact lines of text that prove the answer.</p>
+      </button>
+      <button class="modecard" data-mode="test">
+        <h3>&#9201; Test Mode</h3>
+        <p>Just like the real FAST. No feedback until you submit. Flag questions, move freely, then review everything at the end.</p>
+      </button>
+    </div>
+
+    <h3 style="margin-top:22px">2. Reading supports <span class="mini" style="font-weight:400">&mdash; optional, for any student</span></h3>
+    <div class="optrow">
+      <label>Glossary language
+        <select id="optLang" style="min-width:200px">
+          <option value="">English only &mdash; no glossary</option>
+        </select>
+      </label>
+      <label><input type="checkbox" id="optNotes" checked> Background notes</label>
+      <label><input type="checkbox" id="optCognate" checked> Cognate hints</label>
+    </div>
+    <p class="mini" style="margin-top:-6px">Underlined words in the passage can be tapped for a meaning and a translation. The glossary gives single words only &mdash; the same kind of help a printed word-to-word dictionary gives on the real test, so it stays available in Test Mode. Background notes and cognate hints are study aids and switch off in Test Mode.</p>
+
+    <h3 style="margin-top:22px">3. Benchmarks to practice</h3>
+    <div class="bmwrap" id="bmWrap">
+      <div class="bmtop">
+        <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" id="bmAll" checked> <b>Select all benchmarks</b>
+        </label>
+        <span class="bmcount" id="bmCount">43 of 43 questions</span>
+      </div>
+      <div id="bmGroups"></div>
+    </div>
+    <p class="bmnote" id="bmNote">Leave everything checked for the full practice test. Narrowing to one benchmark keeps only those questions and the passages they come from &mdash; note that most benchmarks are spread across three or four passages, so the reading load stays high.</p>
+
+    <h3>4. Options</h3>
+    <div class="optrow">
+      <label><input type="checkbox" id="optTimer" checked> Show timer</label>
+      <label><input type="checkbox" id="optCountdown"> Countdown limit:
+        <select id="optMinutes">
+          <option value="60">60 min</option>
+          <option value="75">75 min</option>
+          <option value="90" selected>90 min</option>
+          <option value="120">120 min</option>
+        </select></label>
+      <label><input type="checkbox" id="optHighlight" checked> Highlighter tool</label>
+    </div>
+
+    <h3>5. What you will read</h3>
+    <ul class="passlist" id="passList"></ul>
+
+    <div style="margin-top:22px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <button class="btn primary" id="btnBegin" style="padding:12px 26px;font-size:16px">Begin</button>
+      <span class="mini">Tip: drag across the passage to highlight evidence. Nothing is saved &mdash; print your results when you finish.</span>
+    </div>
+  </div>
+</div>
+
+<!-- ============ TEST SCREEN ============ -->
+<div class="wrap" id="testScreen" style="display:none">
+  <div id="split">
+    <div class="panel" id="passagePane">
+      <div class="panel-head">
+        <h2 id="passTitle">Passage</h2>
+        <button class="tool" id="btnHL"><span class="swatch" style="background:var(--mark)"></span> Highlight</button>
+        <button class="tool" id="btnErase">Eraser</button>
+        <button class="tool" id="btnClearHL">Clear</button>
+      </div>
+      <div class="panel-body"><div id="passageText"></div></div>
+    </div>
+
+    <div id="dragbar" role="separator" aria-orientation="vertical" tabindex="0"
+         aria-label="Resize passage and question panes. Use left and right arrow keys."></div>
+
+    <div class="panel" id="questionPane">
+      <div class="panel-head">
+        <h2 id="qHeader">Question 1</h2>
+        <button class="tool" id="btnFlag">&#9873; Flag</button>
+      </div>
+      <div class="panel-body">
+        <div id="qTags" class="qtag"></div>
+        <div id="qBody"></div>
+        <div id="qFeedback"></div>
+        <div class="qfoot">
+          <button class="btn" id="btnPrev">&larr; Back</button>
+          <button class="btn primary" id="btnCheck">Check Answer</button>
+          <button class="btn primary" id="btnNext">Next &rarr;</button>
+          <button class="btn ghost" id="btnEvidence" hidden>Show evidence in passage</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" id="nav">
+    <div class="panel-head"><h2>Question Map</h2></div>
+    <div class="panel-body">
+      <div class="navgrid" id="navGrid"></div>
+      <div class="navlegend">
+        <span><i class="key" style="background:var(--accent-soft);border-color:#9dbdef"></i> answered</span>
+        <span><i class="key"></i> not answered</span>
+        <span><i class="key" style="background:#fff;border-color:#e0a800"></i> flagged</span>
+        <span><i class="key" style="background:var(--good-soft);border-color:#8fcfae"></i> correct</span>
+        <span><i class="key" style="background:var(--bad-soft);border-color:#eda9a4"></i> incorrect</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ RESULTS ============ -->
+<div class="wrap" id="results">
+  <div class="card">
+    <h1 style="font-size:24px">Results &mdash; Grade 9 FAST Reading, Form 1</h1>
+    <div class="mini" id="resultMeta"></div>
+    <div class="scorehero" style="margin-top:18px">
+      <div class="ring">
+        <svg width="132" height="132" viewBox="0 0 132 132">
+          <circle cx="66" cy="66" r="56" fill="none" stroke="#eef1f7" stroke-width="14"></circle>
+          <circle id="ringArc" cx="66" cy="66" r="56" fill="none" stroke="#1f5fbf" stroke-width="14"
+                  stroke-linecap="round" stroke-dasharray="351.86" stroke-dashoffset="351.86"></circle>
+        </svg>
+        <div class="pct"><b id="scorePct">0%</b><span id="scoreRaw">0 of 43</span></div>
+      </div>
+      <div style="flex:1 1 260px;min-width:240px">
+        <div id="scoreBlurb" style="font-size:16px"></div>
+        <div class="statgrid" id="statGrid"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-title">Performance by Benchmark</div>
+  <div class="card">
+    <table class="dash"><thead><tr>
+      <th style="width:78px">Standard</th><th>Content Focus</th><th style="width:70px">Score</th>
+      <th style="width:150px">Mastery</th><th style="width:90px">Level</th></tr></thead>
+      <tbody id="dashBody"></tbody></table>
+    <div class="mini" style="margin-top:12px">Strong = 80%+ &middot; Developing = 50&ndash;79% &middot; Focus = under 50%. Aim your next study session at the &ldquo;Focus&rdquo; rows.</div>
+  </div>
+
+  <div class="section-title">Passage Breakdown</div>
+  <div class="card"><table class="dash"><thead><tr>
+    <th>Passage</th><th style="width:70px">Type</th><th style="width:70px">Score</th><th style="width:150px">Mastery</th></tr></thead>
+    <tbody id="passBody"></tbody></table></div>
+
+  <div class="section-title noprint">Submit to Canvas</div>
+  <div class="card noprint" id="codeCard">
+    <p style="margin-top:0">Copy the code below and paste it into the Canvas assignment. It carries your score and every answer you gave, so your teacher can check your work.</p>
+    <textarea id="subCode" readonly style="width:100%;min-height:120px;font-family:Consolas,Menlo,monospace;font-size:12.5px;padding:11px;border:1.5px solid var(--line);border-radius:10px;resize:vertical;background:#fbfcfe"></textarea>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:11px">
+      <button class="btn primary" id="btnCopyCode">Copy code</button>
+      <button class="btn" id="btnDownloadCode">Download as .txt</button>
+      <span class="mini" id="copyNote"></span>
+    </div>
+  </div>
+
+  <div class="section-title">Question-by-Question Review</div>
+  <div id="reviewList"></div>
+
+  <div class="card noprint" style="margin-top:18px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+    <button class="btn primary" id="btnPrint">&#128424; Print / Save as PDF</button>
+    <button class="btn" id="btnBackToTest">Back to questions</button>
+    <button class="btn" id="btnRetake">Start over</button>
+    <label style="display:inline-flex;align-items:center;gap:7px;font-size:14.5px"><input type="checkbox" id="optPrintExpl"> Include explanations in printout</label>
+    <span class="mini">Printing includes the score, benchmark dashboard, and every answer &mdash; hand it in or keep it for conferences.</span>
+  </div>
+</div>
+
+<div id="pop"></div>
+<div class="toast" id="toast"></div>
+<script>
+/* ============================================================
+   PASSAGE DATA
+   type: "lit" (literary) or "info" (informational)
+   p[] = paragraphs. Objects with kind:"quote"/"scan"/"intro"
+         are set off visually and are NOT numbered.
+   ============================================================ */
+var PASSAGES = [
+{
+ id:"country", title:"The Country Students", type:"lit", genre:"Literary fiction",
+ blurb:"Two rural freshmen talk 4-H, poetry, and meter on a long bus ride.",
+ p:[
+ "“Hey, Sue!” Sue Livrey’s friend, Rosita Soares, waved energetically as the high school freshman clambered aboard.",
+ "Rosie and Sue went to school on a minuscule school bus, not much bigger than a family van—so small it looked like the county supervisor had shrunk it in the wash. The driver collected all the student pickups on an unchanging circuit around the unpaved back roads and isolated farms. They were jounced, and bounced all over as the rickety school bus picked everyone up and dropped them off at their respective schools: first the little kids in the nearest grade school, then the middle school kids, and then the higher-ed students from high school, such as Sue and Rosita. Rosie was Sue’s BFF, and it was always good to have someone save your seat. Sue waved back and shimmied her way down the aisle. She slumped into her seat and let her backpack drop by her feet.",
+ "“Hi, Rosie—I nearly missed the bus today because the lamb got loose—I had to chase it all over the place. Dad was absolutely furious when Woolsey ran right through the milking barn.”",
+ "Rosita’s face registered horror—she knew how crucial the 4-H program was to Sue. Many people gained experience in stock work, received advantages when enrolling in agricultural programs in college, and improved their odds of acceptance by demonstrating their skill with 4-H club animals.",
+ "“Didn’t you lock Woolsey in last night? You need a tumbler padlock,” Rosita said. “Similar to the ones on the lockers at school: you know—with a rotating dial and a private combination? That’s what I’m going to do with my chickens.”",
+ "Rosita was still in the process of planning her project. She was planning on raising a flock for her own 4-H stock project; flocks didn’t take as long to raise as lambs.",
+ "She and Sue were hoping that their participation in the 4-H project would help them get into the local state college; it had a great agricultural program. Rosie liked it because it was a close drive. Her family raised poultry—mainly chickens, but they had turkeys, too. Her family was also considering raising game birds. Rosita wanted to take over the ranch when she was grown up, and the nearby state college could assist her in preparing.",
+ "Sue had more advanced academic ambitions: her mother was a veterinarian and she wanted to follow in her footsteps. There were only thirty accredited vet schools in the United States, so competition was steep, especially if a candidate wanted to go to one of the top schools, such as Cornell.",
+ "The two chatted on as the bus rolled along; Sue was mainly focused on after-school concerns, but Rosie was worried about the school day and classes. She was the one who kept the two on track and focused, determined to keep their grades up.",
+ "“Got your poem done for English?” Rosie asked.",
+ "“No. I don’t like English, and I hate poetry.” Sue crossed her arms over her chest and slumped down in the seat of the bus. “It’s fine for you. You like poetry.”",
+ "“Only in Spanish; English is much harder for me to comprehend.”",
+ "“It’s got to be about the seasons,” Sue said, looking out over the fields. They were drab and gray—not frozen, but by no means ready for spring yet. The tattered skeletons of milkweed and ragweed in the verge and the cattails unraveling their floss in the ditch were parched brown and bleached sepulchral white. Way out on the hills she could see the Gunnersons’ select heirloom dairy herds. “How can you write a poem about that?” Sue moaned, pointing out the window. “It’s got to be in iambic pentameter, and it’s supposed to illustrate enjambment.”",
+ "“What?”",
+ "“The meaning of the words has to run from one line to the next, like in ‘The Star-Spangled Banner.’ ‘O say can you see, by the dawn’s early light’ is one line, and the next goes on, ‘What so proudly we hailed at the twilight’s last gleaming.’ You can say more complicated things in more extensive sentences—that’s enjambment.”",
+ "“How do you know what the meter is?”",
+ "“Like this.” Sue jotted rapidly in her notebook, using visual symbols for stressed and unstressed syllables:",
+ {kind:"scan", t:"Tŏ bē, ŏr nŏt tŏ bē, thăt īs thĕ quēstiŏn:"},
+ {kind:"scan", t:"Whĕthēr ’tīs nōblĕr īn thĕ mīnd tŏ sūffĕr"},
+ {kind:"scan", t:"Thĕ slīngs ănd ārrŏws ŏf ŏutrāgĕous fōrtūne"},
+ {kind:"scan", t:"Ōr tō tăkē ărms āgăinst a sēa ŏf trōublĕs"},
+ {kind:"scan", t:"Ănd bȳ ŏppōsīng ēnd thĕm."},
+ "Sue scrunched low in the uncomfortable seat, bracing a sneaker-clad foot on the bench seat ahead to hold her paper still as the old bus jounced through potholes. Rosita leaned in, pensive and focused, already thinking like an Elizabethan poet. Pretty soon she was tapping her pencil on the chromed rail of the seat ahead, marking the meter while Sue checked the rhyme pattern and made sure it scanned."
+ ]
+},
+{
+ id:"suburban", title:"The Suburban Transfer", type:"lit", genre:"Literary fiction",
+ blurb:"John has moved from rural Wyoming to a New York suburb—and misses home.",
+ p:[
+ "John Behan got home early that day—no swimming practice, no band, no meetings with teachers. Just down the block from school, he caught an express bus that went right past his home and spent the trip doing his math homework for the following day and listening to the rap music filtering from his seat mate’s headphones. He thought the poor kid was going to be deaf by the time he was twenty—John could hear every word and make out the complex rhythms crisscrossing through the primary beat even though he was a good two feet away.",
+ "He still couldn’t believe how fast he could get home or how easy and comfortable it was—what a change from his life a year ago! He’d grown up just outside the Wind River Reservation in Wyoming before his father got a job teaching in New York state. He wasn’t used to reliable public bus services or the big suburban high school he went to now. Out in the country travel had been challenging to arrange, and usually expensive, uncomfortable, or both.",
+ "Here in the Tri-Cities area he could count on buses running every half-hour regularly and being mostly on time. Even a long trip was only a transfer or two, and he had a student pass that made travel as good as free; he could go anywhere! He had been to the museum and library more times in the past month than he had in the last ten years in Wyoming.",
+ "John wished his old friend, Sammy Raven, were here. He and Sammy had been best friends for as long as he could remember. He thought back to the first bus ride they shared together. John felt like a tiny, startled bird on the bus ride on the first day of kindergarten. Sammy, wearing his fancy blue winter coat even though it was August because it was his favorite article of clothing, cracked jokes the whole way. He even put his arm around John a few times to give him a quick hug. John felt his eyes go misty at the memory. He wished Sammy could experience the city life with him.",
+ "He worked on the trig problems he’d been assigned. He was hoping to pass a year ahead of schedule and get into precalculus in his Advanced Placement courses the following year. It wasn’t easy, but he was making headway with it. It was a little like geometry, and a little like algebra equations, only with sine, cosine, and tangent waves. He’d received an A on the last test. He thought he might be able to do it again this time.",
+ "That night, John emailed Sammy, just as he did almost every night. “Hey, Sammy. Wish you could join me out here. It’s like nothing you’ve ever seen outside a movie theater or TV. So much is easier. Shopping, the trip to school, everything like that. I can get fast food and it’s not a plan to go to town to get it first. But it’s different, too. Sammy, I miss it sometimes—the country life isn’t like here. There are more people here—but I think it’s harder to get to know them. I miss you. Send my love to Grandmother Raven. Come see me if you can.”"
+ ]
+},
+{
+ id:"welsh", title:"The Welsh Horse Trainer", type:"lit", genre:"Historical fiction",
+ blurb:"A young immigrant apprentice faces a choice as the age of the horse gives way to the machine.",
+ p:[
+ "At the age of six, Daffyd Jones came over to America with his extended family—aunts and uncles and cousins and all—in 1893. The family had saved and scraped and planned, and bought farmland in Lackawanna County, in northern Pennsylvania. It was the best choice they could see. It let all of them make the most of the skills they had, from those who farmed to those who worked livestock to those who’d spent their lives in the mines. They had a plan designed to keep them safe and to give everyone a chance to prosper.",
+ "For Daffyd, that meant working beside Granda on the farm, with the stock when he was a boy, then moving to an apprenticeship with a local farrier and horse breaker—a man who made horseshoes and tack and who trained green horses. His name was Bert Skellington, and he traveled from one end of the county to the other, back and forth, tending to the needs of the horses in the small towns and the farms in the area. Daffyd learned to make the shoes for the big plough horses, huge animals big enough to break the heavy soil of the valleys; he also learned how to make bits, buckles, harness fittings, and more. It was specialized work, best done on the farms, and few blacksmiths could match the traveling farriers making all the gear the horses used. Bert also trained the horses, which is also known as a “horse breaker.”",
+ "Daffyd later decided that “breaker” was the right word. Bert’s methods were strict and disciplined, aimed at having a horse ready for work quickly, with minimal issues. Farmers might put in the time training a plough team slowly, but riding horses and carriage horses weren’t part of the daily life of a farm in the same way. People wanted results, fast and cheap, and if the animal wasn’t trained to a high level when the breaker was done, they were good enough to start out with.",
+ "In 1903, when Daffyd was sixteen, he got lucky. He and Bert had gone to a stable outside Philadelphia that specialized in training carriage horses and sulky-racing horses—racing horses that pulled light little carts, rather than being ridden by jockeys. Daffyd had worked well with the skittish racehorses, and even better with the quieter horses intended for more ordinary owners to carry them around the city and local towns. The day before Bert and Daffyd were supposed to move on, the stable master took Daffyd aside and offered to buy out his not-yet-completed apprenticeship with Bert and make him an apprentice in the stable.",
+ "Daffyd had to think about it. He asked Bert what he thought. The wiry old man looked at him carefully and said, “You’d be foolish not to take it, Davy-boy.” Bert looked around the stable, then sighed. “Things are already changing—it’s all trains and steamships and automobiles coming in. Factories. You can see it now—less and less work for blacksmiths—when you can buy better from a Sears catalog. Fewer and fewer horses, and it’s only going to get worse. Pretty soon the only horses are going to be the fancy ones. Racers. Show horses. Carriage horses you can show off with. Fancy riding horses for going out with rich people in the park. They aren’t going to want a dirty old breaker for those horses, boy. They’re going to want a trainer. Someone who turns out class from the very start. Take him up on it.”",
+ "Bert got every penny he could for the rest of Daffyd’s apprenticeship. He didn’t bother getting a new apprentice. As work fell off and fewer horses needed his care, he could just about keep up. He saved the money he got for letting Daffyd go and bought a house, and spent his final days letting customers come to him. He got by.",
+ "Daffyd did better. He learned how to work carriage horses and sulky racers from one of the best in the business. Sometimes he still worked like a machine, using the methods of a breaker. But more often he, and the men around him, took their time and worked to bring out the best in an animal.",
+ "Every time Daffyd saw a closed-down blacksmith shop, or saw a Ford Model A go chugging past, or bought new horse tack through a Sears catalog, he thought how lucky he was—and how wise Bert had been. It was a new era."
+ ]
+},
+{
+ id:"crop", title:"Crop-Livestock Farming: The Rebirth of a Tradition", type:"info", genre:"Informational",
+ blurb:"How mixed crop-and-livestock farming fell out of fashion—and why it is coming back.",
+ p:[
+ "One of the oldest forms of agriculture known to humankind is mixed crop and livestock farming. From the earliest days of farming in the Middle East, humans blended livestock, truck farms, and grain farming, ensuring that communities would enjoy meat, dairy products, fruit, vegetables, and grain staples at all times; the system also ensured that animal labor and animal compost would both add to the farm’s effectiveness.",
+ "For much of history, however, this mixed stock and crop farming was done on a highly irregular basis. The two-field system, in which fields were rotated between active crops and fallow seasons, was developed in the early Middle Ages. In the late Middle Ages, the three-field system came into play, in which fields were rotated between a primary crop, a fertilizing crop like legumes that enriched the soil with nitrogen, and a fallow year in which animals might be grazed on the field, adding their manure to the soil. This system lasted into the beginning of the twentieth century. Mixed livestock and crop farming became an art form at the end of this period, which occurred during the Victorian era. Farmers balanced the use of the land carefully, using each element of the farm to support other elements.",
+ "This final stage of three-field cropping reflected the beginning of scientific farming—a system that unfortunately led to radical abuses, as scientists and farmers alike concluded that manufactured fertilizers, chemical pest management, and monoculture farming (farming a single crop, rather than raising mixed crops on all farms) were sufficient to maintain the land and produce efficient and easily sold crops. Farmers became specialists who were dependent on powered machines, purchased fertilizers, and weed and pest controls to produce one major sale crop. Mixed agriculture became out of fashion.",
+ "The problems arising from monoculture “scientific” farming have led many farmers to take up mixed crop and livestock farming again, often on a level unimagined even in the late Victorian era. Farmers might balance multiple fields around an entire acreage, planning that use to eliminate pests naturally, reduce the growth of weeds, and improve the tilth of the soil. (The tilth refers to the overall condition of soil, including structure, drainage, aeration, and nutrition, as well as prevalence of pests and diseases present in the soil.) Farms such as the widely known Polyface Farm experiment in rotation in which a field is left fallow and used for chickens or other grazing livestock in one season, used to grow crops intended to be plowed back into the land in the next season, then used for growing legumes in the following season, and finally used to grow crops of grain before being turned fallow again. Intelligent rotation can reduce problems that would otherwise require chemical interventions including artificial fertilizers.",
+ "This revival of mixed stock and crop farming is of great interest to farmers involved in sustainable farming. A well-managed mixed stock and crop farm can be free of purchased shortcuts and damaging chemicals, and the mix can help provide the farm with a broad base of marketable products. The animals on a mixed-crop farm are almost always able to lead more natural lives than those on a stock-only enterprise. Manure and urine are produced at a rate in balance with the rest of the farm, reducing or eliminating the problem of waste removal or management. The odds of a mixed stock and crop farm being self-sustaining for generations are high. The ideal economics, however, are complex, particularly in a culture that continues to favor monoculture “scientific” farming over more traditional farming systems natural to smaller farms."
+ ]
+},
+{
+ id:"transport", title:"The Costs of the Transportation of Goods", type:"info", genre:"Informational",
+ blurb:"The hidden price of moving goods around the globe, and how logistics might lower it.",
+ p:[
+ "We live in a culture that depends entirely on the ability to transport goods and products from the place where they are grown, processed, or manufactured to the point of sale. This trip often means carrying merchandise around the world. Elements of the merchandise may move back and forth around the globe many times, as raw resources are transported to processing stations, then to various stages of manufacture and production that will change the resources from raw goods to processed materials to simple components of complex processes to finished goods, which are then carried around the world to be sold in different nations.",
+ "It is easy to think of transportation as costing us nothing—or as costing us only the hiring fee of truckers. Transportation is just the first hint of the costs actually involved. We have to factor in the various fuels used in transportation and the environmental damage in drilling and refining those fuels. Manufacturing trucks, trains, and ships amass high costs. Most shipping containers are used only a few times, much like a disposable food container. Transportation costs also go toward maintaining roads and railways, building ships, and policing our waterways. In addition, pollution from burning fossil fuels is a cost that cannot be ignored.",
+ "A complete reckoning counts the benefits of jobs, the efficient support of farm and manufacturing systems, and the contribution of transportation to a lively economy. In a perfect world, we would continue to try to improve our transportation and our logistics systems. Logistics is the skill of planning all aspects of transportation for improved effectiveness and for reduced costs and damages. Improving these systems can only help our economy and our ecology, leading to more prudent forms of transportation—ones that use more desirable fuels and less wasteful approaches. Pollution can be reduced; ecological damage of other types can involve less impact. Road systems can take wildlife migration into account. Advance planning can lead to less back-and-forth transportation.",
+ "How do we proceed? We are past the point of escaping transportation, with all its benefits and costs. Our many nations all need the products produced around the world, and our transportation methods allow us to make use of regional advantages at every stage of production, manufacture, and sale. How can we improve the ways we use transportation? The costs are inescapable, so we must continually find new ways to innovate."
+ ]
+},
+{
+ id:"majority", title:"Majority Opinion in West Side Community Schools v. Mergens", type:"info", genre:"Legal / argumentative",
+ blurb:"The Supreme Court majority explains how the Equal Access Act applies to student clubs.",
+ intro:"A student named Bridget Mergens at West Side High School in Omaha, Nebraska, asked the school’s principal if she could start a Christian club at the school. The high school already had approximately 30 clubs, such as the scuba-diving and chess clubs. The principal denied the request, stating that a religious club would be illegal in public schools. This eventually brought the West Side Community Schools v. Mergens case to the Supreme Court. This is an excerpt of the majority opinion of the court.",
+ p:[
+ "Under the Equal Access Act, a public secondary school with a “limited open forum” is prohibited from discriminating against students who wish to conduct a meeting within that forum on the basis of the “religious, political, philosophical, or other content of the speech at such meetings.” Specifically, the Act provides:",
+ {kind:"quote", t:"It shall be unlawful for any public secondary school which receives Federal financial assistance and which has a limited open forum to deny equal access or a fair opportunity to, or discriminate against, any students who wish to conduct a meeting within that limited open forum on the basis of the religious, political, philosophical, or other content of the speech at such meetings."},
+ "A “limited open forum” exists whenever a public secondary school “grants an offering to or opportunity for one or more noncurriculum related student groups to meet on school premises during noninstructional time.” A “meeting” is defined to include “those activities of student groups which are permitted under a school’s limited open forum and are not directly related to the school curriculum.” And, “noninstructional time” is defined to mean “time set aside by the school before actual classroom instruction begins or after actual classroom instruction ends.” Thus, even if a public secondary school allows only one “noncurriculum related student group” to meet, the Act’s obligations are triggered and the school may not deny other clubs, on the basis of the content of their speech, equal access to meet on school premises during noninstructional time.",
+ "In light of this legislative purpose, we think that the term “noncurriculum related student group” is best interpreted broadly to mean any student group that does not directly relate to the body of courses offered by the school. In our view, a student group directly relates to a school’s curriculum if the subject matter of the group is actually taught, or will soon be taught, in a regularly offered course; if the subject matter of the group concerns the body of courses as a whole; or if participation in the group is required for a particular course.",
+ "For example, a French club would directly relate to the curriculum if a school taught French in a regularly offered course or planned to teach the subject in the near future. A school’s student government would generally relate directly to the curriculum to the extent that it addresses concerns, solicits opinions, and formulates proposals pertaining to the body of courses offered by the school. If participation in a school’s band or orchestra were required for the band or orchestra classes, or resulted in academic credit, then those groups would also directly relate to the curriculum. The existence of such groups at a school would not trigger the Act’s obligations.",
+ "On the other hand, unless a school could show that groups such as a chess club, a stamp collecting club, or a community service club fell within our description of groups that directly relate to the curriculum, such groups would be “noncurriculum related student groups” for purposes of the Act. The existence of such groups would create a “limited open forum” under the Act and would prohibit the school from denying equal access to any other student group on the basis of the content of that group’s speech. Whether a specific student group is a “noncurriculum related student group” will therefore depend on a particular school’s curriculum, but such determinations would be subject to factual findings well within the competence of trial courts to make."
+ ]
+},
+{
+ id:"dissent", title:"Dissenting Opinion in West Side Community Schools v. Mergens", type:"info", genre:"Legal / argumentative",
+ blurb:"Justice Stephens argues the majority has read the Equal Access Act far too broadly.",
+ intro:"This is an excerpt from the dissenting opinion, written by Justice Stephens, in the West Side Community Schools v. Mergens Supreme Court Case.",
+ p:[
+ "Can Congress really have intended to issue an order to every public high school in the Nation stating, in substance, that if you sponsor a chess club, a scuba diving club, or a French club without having formal classes in those subjects you must also open your doors to every religious, political, or social organization, no matter how controversial or distasteful its views may be? I think not.",
+ "The Act’s basic design is easily summarized: when a public high school has a “limited open forum,” it must not deny any student group access to that forum on the basis of the religious, political, philosophical, or other content of the speech of the group. Although the consequences of having a limited open forum are thus quite clear, the definition of such a forum is less so. Nevertheless, there is considerable agreement about how this difficulty must be resolved. The Court correctly identifies three useful guides to Congress’ intent. First, the text of the statute says that a school creates a limited open forum if it allows meetings on school premises by “noncurriculum related student groups,” a concept that is ambiguous at best. Second, because this concept is ambiguous, the statute must be interpreted by reference to its general purpose, as revealed by its overall structure and by the legislative history. Third, the Act’s legislative history reveals that Congress intended to guarantee student religious groups access to high school fora comparable to the college forum involved in Widmar v. Vincent.",
+ "I believe that the distinctions between Westside’s program and the University of Missouri’s program in Widmar suggest what is the best understanding of the Act: An extracurricular student organization is “noncurriculum related” if it has as its purpose (or as part of its purpose) the advocacy of partisan theological, political, or ethical views. A school that admits at least one such club has apparently made the judgment that students are better off if the student community is permitted to, and perhaps even encouraged to, compete along ideological lines. This pedagogical strategy may be defensible or even desirable. But it is wrong to presume that Congress endorsed that strategy and dictated its nationwide adoption simply because it approved the application of Widmar to high schools. And it seems absurd to presume that Westside has invoked the same strategy by recognizing clubs like the Swimming Timing Team and Sub-surfers which, though they may not correspond directly to anything in Westside’s course offerings, are no more controversial than a grilled cheese sandwich."
+ ]
+}
+];
+</script>
+<script>
+/* ============================================================
+   QUESTION DATA  —  43 scored parts across 38 questions
+   ans: array of 0-based option indices.  pick: how many to choose.
+   ev : evidence anchors {p: paragraph number, t: exact text to light up}
+   ============================================================ */
+var QUESTIONS = [
+
+/* ---------- THE COUNTRY STUDENTS ---------- */
+{
+ n:"1", pass:"country", std:"V.1.3", focus:"Context and Connotation", pick:2,
+ stem:"Which phrases from paragraph 2 provide context for the meaning of <i>minuscule</i>? Select two correct answers.",
+ opts:["“their respective schools”","“unpaved back roads”","“not much bigger than a family van”","“shrunk it in the wash”","“went to school”"],
+ ans:[2,3],
+ why:"<i>Minuscule</i> means extremely small. The author defines it twice in the same sentence: the bus is “not much bigger than a family van,” and it looks as though someone “shrunk it in the wash.” Both phrases are restatements that let you build the meaning without a dictionary.",
+ traps:{0:"“Their respective schools” tells you where the bus goes, not how big it is.",1:"“Unpaved back roads” describes the route and the rough ride — size is never mentioned.",4:"“Went to school” is the purpose of the trip, not a size clue."},
+ ev:[{p:2,t:"not much bigger than a family van"},{p:2,t:"shrunk it in the wash"}]
+},
+{
+ n:"2", pass:"country", std:"V.1.3", focus:"Context and Connotation", pick:1,
+ excerpt:"“It’s got to be about the seasons,” Sue said, looking out over the fields. They were drab and gray—not frozen, but by no means ready for spring yet. The tattered skeletons of milkweed and ragweed in the verge and the cattails unraveling their floss in the ditch were parched brown and bleached sepulchral white. (paragraph 13)",
+ stem:"Which word has the same connotation as the word <i>drab</i> as it is used in paragraph 13?",
+ opts:["lifeless","dreary","fragile","boring"],
+ ans:[1],
+ why:"Connotation is the feeling a word carries. Here <i>drab</i> sits beside “gray,” “parched brown,” and “bleached” — words about a dull, colorless, gloomy landscape. <i>Dreary</i> carries exactly that same joyless, washed-out feeling.",
+ traps:{0:"“Lifeless” means dead. The fields are dormant and waiting for spring, not dead — and <i>drab</i> is about color, not life.",2:"“Fragile” means easily broken. Nothing in the description suggests delicacy.",3:"“Boring” is close in everyday speech, but it describes something uninteresting to a person, while <i>drab</i> describes the dull appearance of the thing itself."},
+ ev:[{p:13,t:"They were drab and gray"},{p:13,t:"parched brown and bleached sepulchral white"}]
+},
+{
+ n:"3", pass:"country", std:"R.1.1", focus:"Literary Elements", pick:1,
+ stem:"How does the author’s characterization of Sue and Rosie enhance the meaning of the text?",
+ opts:["by illustrating how difficult it is for Rosie and Sue to write a poem","by contrasting Rosie’s interest in poetry and Sue’s interest in the landscape","by emphasizing Rosie’s dedication to grades and Sue’s interest in after-school activities","by highlighting how Rosie and Sue become more interested in poetry as they work together"],
+ ans:[2],
+ why:"Paragraph 9 states the contrast directly: “Sue was mainly focused on after-school concerns, but Rosie was worried about the school day and classes… determined to keep their grades up.” Sue opens the story talking about her lamb and 4-H; Rosie opens by asking about the English homework. The two girls are built as complements, which is why they can help each other.",
+ traps:{0:"The poem is hard for Sue, but that is one scene, not the characterization that shapes the whole text.",1:"Reversed. Rosie likes poetry “only in Spanish,” and it is Sue who stares out at the landscape.",3:"Neither girl changes her mind about poetry. Sue still dislikes it; they simply get the work done together."},
+ ev:[{p:9,t:"Sue was mainly focused on after-school concerns, but Rosie was worried about the school day and classes"},{p:9,t:"determined to keep their grades up"}]
+},
+{
+ n:"4", pass:"country", std:"R.3.1", focus:"Figurative Language", pick:1,
+ excerpt:"The tattered skeletons of milkweed and ragweed in the verge and the cattails unraveling their floss in the ditch were parched brown and bleached sepulchral white. (paragraph 13)",
+ stem:"How does the personification in “tattered skeletons of milkweed and ragweed” contribute to the mood of the text?",
+ opts:["It creates a threatening mood.","It creates a somber mood.","It creates a nostalgic mood.","It creates an anxious mood."],
+ ans:[1],
+ why:"“Skeletons,” “tattered,” “parched,” and especially “sepulchral” (a sepulchre is a tomb) load the winter fields with images of death and burial. That produces a <b>somber</b> mood — heavy, gloomy, funeral-like — which is exactly why Sue groans that she cannot write a poem about it.",
+ traps:{0:"Threatening mood requires danger aimed at someone. Dead weeds in a ditch menace no one.",2:"Nostalgia is fond longing for the past. Nothing here is remembered warmly.",3:"Anxious mood requires worry about what is coming. The scene is still and lifeless, not tense."},
+ ev:[{p:13,t:"The tattered skeletons of milkweed and ragweed"},{p:13,t:"bleached sepulchral white"}]
+},
+{
+ n:"5", pass:"country", std:"V.1.2", focus:"Morphology", pick:1,
+ excerpt:"Rosita leaned in, pensive and focused, already thinking like an Elizabethan poet. (paragraph 23)",
+ stem:"The word <i>pensive</i> comes from the Latin <i>pensare</i>, which means “ponder.” Given this information, what do you think <i>pensive</i> means?",
+ opts:["engaged in deep thought","having feelings of restlessness","drained of energy","struggling to understand"],
+ ans:[0],
+ why:"Attack the root first: <i>pensare</i> = “to ponder,” so <i>pensive</i> must be about thinking. Then confirm with context — Rosita is “focused” and “already thinking like an Elizabethan poet.” <b>Engaged in deep thought</b> matches both the root and the sentence.",
+ traps:{1:"Restlessness is the opposite of what “focused” describes.",2:"“Drained of energy” ignores the root entirely; she is leaning in, not wearing out.",3:"Tempting, because pondering can involve struggle — but the root means to ponder, not to fail to understand. Rosita is succeeding."},
+ ev:[{p:23,t:"Rosita leaned in, pensive and focused"}]
+},
+{
+ n:"6", pass:"country", std:"R.1.2", focus:"Theme", pick:1,
+ stem:"What is one universal theme the text’s plot develops?",
+ opts:["The future depends on understanding the past.","Humans often fail to respect nature.","Working together helps people build knowledge.","Appreciating other cultures expands one’s mind."],
+ ans:[2],
+ why:"Follow the plot: Sue hates poetry and is stuck; Rosie, who reads poetry in Spanish, asks questions; Sue explains enjambment and meter to answer her. By the last paragraph they are working as a pair — “tapping her pencil… marking the meter while Sue checked the rhyme pattern.” Each girl knows something the other does not, and the collaboration is what produces the learning.",
+ traps:{0:"Shakespeare and the Elizabethan era appear, but the past is a tool for the assignment, not the story’s lesson.",1:"The winter landscape is described, never mistreated.",3:"Rosita’s Spanish is mentioned once as a detail; no one’s mind is broadened by another culture."},
+ ev:[{p:23,t:"marking the meter while Sue checked the rhyme pattern and made sure it scanned"},{p:15,t:"The meaning of the words has to run from one line to the next"}]
+},
+{
+ n:"7A", pass:"country", std:"R.1.3", focus:"Perspective and Point of View", pick:1, part:"Part A",
+ pairNote:"This question has two parts. First answer Part A, then answer Part B.",
+ stem:"What is the narrator’s perspective on the winter season?",
+ opts:["The narrator thinks winter is dangerous for many.","The narrator thinks winter is a time of rebirth.","The narrator thinks winter is depressing.","The narrator thinks winter is a time to explore new hobbies."],
+ ans:[2],
+ why:"Every word the narrator spends on the season is negative: the fields are “drab and gray,” “by no means ready for spring,” the plants are “tattered skeletons,” “parched brown,” “bleached sepulchral white.” That accumulated diction shows a narrator who sees winter as <b>depressing</b>.",
+ traps:{0:"No harm or risk to anyone is described.",1:"Rebirth would be spring — which the text explicitly says has not arrived.",3:"The poem is a class assignment, not a hobby anyone takes up because of the season."},
+ ev:[{p:13,t:"They were drab and gray—not frozen, but by no means ready for spring yet"}]
+},
+{
+ n:"7B", pass:"country", std:"R.1.3", focus:"Perspective and Point of View", pick:1, part:"Part B",
+ stem:"How does this perspective help build irony in the text?",
+ opts:["Sue and Rosie are looking for inspiration to write a poem about seasons.","The landscape reminds Sue of “The Star-Spangled Banner.”","Rosie dislikes winter weather because it creates potholes in the road.","Winter becomes Sue and Rosie’s new favorite season."],
+ ans:[0],
+ why:"Irony is a gap between what you expect and what happens. Poems are supposed to be sparked by beauty — yet the girls must find poetic inspiration in a landscape the narrator has painted as dead and gloomy. Sue says it herself: “How can you write a poem about that?” And then they write one anyway.",
+ traps:{1:"“The Star-Spangled Banner” is Sue’s example of enjambment, not something the landscape calls to mind.",2:"Rosie never comments on potholes; the bus simply jounces through them.",3:"Neither girl changes how she feels about winter."},
+ ev:[{p:13,t:"How can you write a poem about that?"},{p:13,t:"It’s got to be about the seasons"}]
+},
+
+/* ---------- THE SUBURBAN TRANSFER ---------- */
+{
+ n:"8", pass:"suburban", std:"R.1.2", focus:"Theme", pick:1,
+ stem:"How is the theme of “change can bring new opportunities” developed in paragraph 3?",
+ opts:["This theme is developed by the description of how John takes the bus to visit museums.","This theme is developed by the description of what John does while he is on the bus.","This theme is developed by the description of how John buys his bus passes.","This theme is developed by the description of what John sees as he rides the bus."],
+ ans:[0],
+ why:"Paragraph 3 ends on the payoff line: “He had been to the museum and library more times in the past month than he had in the last ten years in Wyoming.” The <i>change</i> (a move to a city with reliable buses) produces a concrete new <i>opportunity</i> (access to places he could never reach before).",
+ traps:{1:"Homework and music happen in paragraph 1, and neither is a new opportunity created by the move.",2:"He does not buy passes — he already has a student pass, and it makes travel “as good as free.”",3:"Paragraph 3 describes where John can go, not what he sees out the window."},
+ ev:[{p:3,t:"He had been to the museum and library more times in the past month than he had in the last ten years in Wyoming"}]
+},
+{
+ n:"9", pass:"suburban", std:"R.1.1", focus:"Literary Elements", pick:1,
+ stem:"In paragraph 4, how does the author’s use of flashback affect the meaning of the story?",
+ opts:["It conveys how much John misses Sammy.","It highlights the reasons John had to move to the city.","It details the tension caused by John’s move.","It demonstrates how similar John and Sammy were."],
+ ans:[0],
+ why:"The flashback is framed by longing on both ends: it opens “John wished his old friend, Sammy Raven, were here,” and closes with “John felt his eyes go misty at the memory. He wished Sammy could experience the city life with him.” The warm kindergarten memory exists to measure the size of what John has lost.",
+ traps:{1:"The reason for the move — his father’s teaching job — is in paragraph 2, not the flashback.",2:"The flashback is tender, not tense. The move causes no conflict in this scene.",3:"The two boys are drawn as opposites: John is the “tiny, startled bird,” Sammy is the joking, hugging one."},
+ ev:[{p:4,t:"John wished his old friend, Sammy Raven, were here"},{p:4,t:"John felt his eyes go misty at the memory"}]
+},
+{
+ n:"10", pass:"suburban", std:"R.3.1", focus:"Figurative Language", pick:1,
+ excerpt:"John felt like a tiny, startled bird on the bus ride on the first day of kindergarten. (paragraph 4)",
+ stem:"How does the simile that describes John feeling “like a tiny, startled bird” contribute to the mood of the text?",
+ opts:["It creates a mood of sadness.","It creates a mood of sentimentality.","It creates a mood of excitement.","It creates a mood of nervousness."],
+ ans:[3],
+ why:"Read the comparison literally: a bird that is <i>tiny</i> and <i>startled</i> is small, exposed, and easily frightened. Transferred to a five-year-old on his first bus ride, that produces a <b>nervous</b> mood — which is exactly why Sammy’s jokes and hugs matter in the next sentence.",
+ traps:{0:"Sadness comes later, in John’s misty eyes at the memory — not from the bird image itself.",1:"The whole paragraph is sentimental, but the question asks what <i>this simile</i> creates, and a startled bird conveys fear, not fondness.",2:"Excitement would be a happy jolt; “startled” is an unpleasant one."},
+ ev:[{p:4,t:"John felt like a tiny, startled bird"}]
+},
+{
+ n:"11", pass:"suburban", std:"R.1.3", focus:"Perspective and Point of View", pick:1,
+ stem:"How does the narrator’s perspective create irony in the text?",
+ opts:["It reveals how many more times John has been to the museum and library in the city than he had in Wyoming.","It reveals that John and Sammy are still friends, even though they no longer live in the same state.","It reveals the difference between taking a bus in the city and taking a bus near the reservation.","It reveals that, despite John’s excitement about city life, he still spends a lot of time thinking about home."],
+ ans:[3],
+ why:"For five paragraphs the narrator lets John celebrate the city — fast, easy, comfortable, “he could go anywhere!” Then the email turns it over: “I miss it sometimes… There are more people here—but I think it’s harder to get to know them. I miss you.” The irony is that everything he gained has not replaced what he left.",
+ traps:{0:"True, but a fact about frequency is not a contradiction.",1:"A continuing friendship is expected, not ironic.",2:"A real difference exists, but comparison alone is not irony — irony needs the reversal of expectation."},
+ ev:[{p:6,t:"Sammy, I miss it sometimes—the country life isn’t like here"},{p:2,t:"He still couldn’t believe how fast he could get home or how easy and comfortable it was"}]
+},
+
+/* ---------- THE WELSH HORSE TRAINER ---------- */
+{
+ n:"12A", pass:"welsh", std:"R.1.1", focus:"Literary Elements", pick:1, part:"Part A",
+ pairNote:"This question has two parts. First answer Part A, then answer Part B.",
+ stem:"Why does the author include paragraph 4 in the story?",
+ opts:["It tells why Daffyd and Bert go to a stable outside Philadelphia.","It emphasizes how well Daffyd and Bert work together.","It gives the reader background details about Daffyd.","It introduces a difficult decision that Daffyd needs to make."],
+ ans:[3],
+ why:"Paragraph 4 ends on the offer: the stable master “offered to buy out his not-yet-completed apprenticeship with Bert and make him an apprentice in the stable.” That is the story’s turning point — the conflict Daffyd must resolve, and everything after paragraph 4 flows from it.",
+ traps:{0:"The trip is mentioned, but it is setup, not the reason the paragraph exists.",1:"Their partnership is established back in paragraph 2.",2:"Background comes in paragraphs 1–3. Paragraph 4 moves the plot forward instead."},
+ ev:[{p:4,t:"offered to buy out his not-yet-completed apprenticeship with Bert and make him an apprentice in the stable"}]
+},
+{
+ n:"12B", pass:"welsh", std:"R.1.1", focus:"Literary Elements", pick:1, part:"Part B",
+ stem:"How does this paragraph add meaning to the author’s characterization of Daffyd?",
+ opts:["It reveals that Daffyd feels no loyalty to Bert.","It shows that Daffyd is a valuable and sought-after apprentice.","It shows Daffyd’s preferences for particular horses.","It proves how much Daffyd has learned from Bert."],
+ ans:[1],
+ why:"A stable master willing to <i>pay</i> to end another man’s apprenticeship has seen something worth buying. The paragraph earns that judgment first: Daffyd “worked well with the skittish racehorses, and even better with the quieter horses.” He is characterized as talented enough that a top stable comes looking for him.",
+ traps:{0:"The opposite — Daffyd’s first move is to ask Bert what he thinks.",2:"He works well with both kinds of horses; no preference is stated.",3:"Tempting, but the paragraph highlights what others see in Daffyd, not what Bert taught him. Bert’s teaching is the subject of paragraphs 2 and 7."},
+ ev:[{p:4,t:"Daffyd had worked well with the skittish racehorses, and even better with the quieter horses"}]
+},
+{
+ n:"13A", pass:"welsh", std:"R.1.1", focus:"Literary Elements", pick:1, part:"Part A",
+ pairNote:"This question has two parts. First answer Part A, then answer Part B.",
+ stem:"Paragraph 5 features a conversation between Daffyd and Bert. Why does the author include this conversation?",
+ opts:["to show that Bert is resigned to changes taking place","to demonstrate Bert’s hopefulness about the future","to highlight Bert’s resentment of Daffyd","to underscore Bert’s anger toward the stable master"],
+ ans:[0],
+ why:"Bert “looked around the stable, then <i>sighed</i>” before listing what is coming: trains, steamships, automobiles, factories, Sears catalogs, “fewer and fewer horses, and it’s only going to get worse.” He does not fight any of it. To be <b>resigned</b> is to accept what you cannot change — which is exactly the tone of that sigh.",
+ traps:{1:"Hopeful is the reverse of “it’s only going to get worse.”",2:"He pushes Daffyd toward the better job: “You’d be foolish not to take it.”",3:"No anger toward anyone appears — Bert gets his money and moves on."},
+ ev:[{p:5,t:"Things are already changing—it’s all trains and steamships and automobiles coming in"},{p:5,t:"Fewer and fewer horses, and it’s only going to get worse"}]
+},
+{
+ n:"13B", pass:"welsh", std:"R.1.1", focus:"Literary Elements", pick:1, part:"Part B",
+ stem:"How does this conversation add meaning to the author’s characterization of Bert?",
+ opts:["It reveals that Bert is an optimist.","It reveals that Bert is an unselfish person.","It reveals that Bert is a moody person.","It reveals that Bert is unable to accept his fate."],
+ ans:[1],
+ why:"Bert loses by giving this advice — he surrenders a gifted apprentice in a trade that is already shrinking. He tells Daffyd to take the offer anyway, and the reason he gives is entirely about Daffyd’s future: “They’re going to want a trainer… Take him up on it.” Putting someone else’s future ahead of your own interest is <b>unselfishness</b>.",
+ traps:{0:"His forecast is bleak, not optimistic.",2:"One sigh is not moodiness; his manner is steady and thoughtful throughout.",3:"He accepts his fate completely — that is Part A’s answer, and it contradicts this one."},
+ ev:[{p:5,t:"You’d be foolish not to take it, Davy-boy"},{p:5,t:"They’re going to want a trainer"}]
+},
+{
+ n:"14", pass:"welsh", std:"R.1.2", focus:"Theme", pick:1,
+ stem:"Which sentence from the passage helps develop the theme that people must adapt to changing technologies?",
+ opts:["“‘Things are already changing—it’s all trains and steamships and automobiles coming in.’” (paragraph 5)","“The family had saved and scraped and planned, and bought farmland in Lackawanna County, in northern Pennsylvania.” (paragraph 1)","“Daffyd had worked well with the skittish racehorses, and even better with the quieter horses intended for more ordinary owners to carry them around the city and local towns.” (paragraph 4)","“It was specialized work, best done on the farms, and few blacksmiths could match the traveling farriers making all the gear the horses used.” (paragraph 2)"],
+ ans:[0],
+ why:"This is the one sentence that names new technology (trains, steamships, automobiles) and frames it as change already underway. It is also the sentence that drives the plot — it is why Bert tells Daffyd to take the offer, and why Daffyd thrives while Bert merely “got by.”",
+ traps:{1:"About the family’s immigration and planning; no technology.",2:"About Daffyd’s skill with horses; no technology.",3:"Describes the old craft at its height — the world <i>before</i> the change."},
+ ev:[{p:5,t:"Things are already changing—it’s all trains and steamships and automobiles coming in"}]
+},
+{
+ n:"15", pass:"welsh", std:"R.3.1", focus:"Figurative Language", pick:1,
+ excerpt:"Sometimes he still worked like a machine, using the methods of a breaker. (paragraph 7)",
+ stem:"How does the simile that describes Daffyd working \u201clike a machine\u201d contribute to the mood of the text?",
+ opts:["It creates a mood of resentment.","It creates a mood of euphoria.","It creates a mood of detachment.","It creates a mood of tenacity."],
+ ans:[3],
+ why:"Ask what a machine actually does: it runs without tiring and keeps producing results. Bert\u2019s breaker methods were built for exactly that \u2014 \u201cready for work quickly, with minimal issues\u201d \u2014 and the word \u201cstill\u201d shows Daffyd has never lost that relentless drive even after he learned a gentler way. <b>Tenacity</b> is that quality of pushing on and getting the job done.",
+ traps:{0:"Resentment needs bitterness toward someone. Daffyd ends the story feeling lucky and grateful to Bert.",1:"Euphoria is overwhelming joy \u2014 the opposite of steady, mechanical work.",2:"The strongest distractor: machines do lack feeling, so \u201cdetachment\u201d sounds right. But the paragraph is tracking how <i>hard and effectively</i> Daffyd works, not how little he feels \u2014 and the very next line shows him bringing out the best in an animal, which is not a detached man."},
+ ev:[{p:7,t:"Sometimes he still worked like a machine, using the methods of a breaker"},{p:3,t:"aimed at having a horse ready for work quickly, with minimal issues"}]
+},
+{
+ n:"16", pass:"welsh", std:"R.1.3", focus:"Perspective and Point of View", pick:1,
+ stem:"How does the narrator’s perspective create irony in the text?",
+ opts:["The narrator describes Bert’s encouragement that Daffyd take the new job and then later reveals Bert’s regret over it.","The narrator reveals Daffyd’s private hesitations about the job offer, despite its great opportunities.","The narrator details the changes in technology before revealing that people eventually go back to using the original methods.","The narrator details all of the training Bert gives to Daffyd and then describes how it leads to a new job offer from someone else."],
+ ans:[3],
+ why:"Bert spends years making Daffyd skilled — and that very skill is what makes a rival stable want to buy him away. The teacher’s success costs him his student. The narrator sharpens it by tracking both men afterward: Daffyd “did better,” while Bert simply “got by.”",
+ traps:{0:"Bert never regrets it. He takes the money, and Daffyd later reflects on “how wise Bert had been.”",1:"Daffyd needs time to think, but the narrator reports no private doubts.",2:"Nobody returns to the old methods; the passage ends with “It was a new era.”"},
+ ev:[{p:2,t:"moving to an apprenticeship with a local farrier and horse breaker"},{p:6,t:"He got by"},{p:7,t:"Daffyd did better"}]
+},
+];
+</script>
+<script>
+QUESTIONS = QUESTIONS.concat([
+
+/* ---------- CROP-LIVESTOCK FARMING ---------- */
+{
+ n:"17", pass:"crop", std:"V.1.3", focus:"Context and Connotation", pick:1,
+ excerpt:"The two-field system, in which fields were rotated between active crops and fallow seasons, was developed in the early Middle Ages. (paragraph 2)",
+ stem:"Which word from the sentence provides the clue to the meaning of <i>fallow</i>?",
+ opts:["developed","seasons","fields","active"],
+ ans:[3],
+ why:"The sentence is built on a contrast: fields rotate <i>between</i> two opposite states. One is “active crops,” so the other — <i>fallow</i> — must mean the opposite: resting, unplanted. <b>Active</b> is the antonym clue that unlocks the word.",
+ traps:{0:"“Developed” tells when the system appeared, not what fallow means.",1:"“Seasons” tells you fallow happens over a period of time, but not what happens during it.",2:"“Fields” names what is fallow, not what fallow means."},
+ ev:[{p:2,t:"fields were rotated between active crops and fallow seasons"}]
+},
+{
+ n:"18A", pass:"crop", std:"R.2.3", focus:"Purpose and Perspective", pick:1, part:"Part A",
+ pairNote:"This question has two parts. First answer Part A, then answer Part B.",
+ stem:"What is the main purpose of the text?",
+ opts:["to describe how farming techniques developed over time","to compare stock farming and crop farming","to tout the benefits of monoculture farming","to critique farmers’ choices of farming techniques"],
+ ans:[0],
+ why:"Track the passage’s spine: earliest days in the Middle East → two-field system in the early Middle Ages → three-field system in the late Middle Ages → scientific/monoculture farming in the twentieth century → today’s revival of mixed farming. That is a history of how techniques <b>developed over time</b>.",
+ traps:{1:"The text is about <i>combining</i> stock and crops, not weighing one against the other.",2:"Monoculture is criticized — it “led to radical abuses.”",3:"The author critiques a system and a culture, not individual farmers’ choices."},
+ ev:[{p:2,t:"The two-field system"},{p:3,t:"This final stage of three-field cropping reflected the beginning of scientific farming"}]
+},
+{
+ n:"18B", pass:"crop", std:"R.2.3", focus:"Purpose and Perspective", pick:1, part:"Part B",
+ stem:"How does the author use rhetoric to convey the text’s purpose?",
+ opts:["The author uses emotional words to provoke a desired reaction from the audience.","The author uses hyperbole to emphasize the pros and cons of farming techniques.","The author uses quotations from experts to support the text’s main points.","The author uses facts to make logical connections between ideas."],
+ ans:[3],
+ why:"The passage runs on verifiable information — dated systems, how legumes fix nitrogen, a defined term (“tilth”), a named example (Polyface Farm) — and chains them causally: monoculture created problems, therefore farmers returned to rotation. That is a <b>logical appeal built from facts</b>.",
+ traps:{0:"“Radical abuses” has some charge, but the passage does not run on emotion; it explains systems.",1:"Hyperbole is deliberate exaggeration. The author states claims plainly, even conceding “the ideal economics… are complex.”",2:"No expert is ever quoted. Polyface Farm is cited as an example, not as a voice."},
+ ev:[{p:4,t:"The tilth refers to the overall condition of soil"},{p:4,t:"Farms such as the widely known Polyface Farm experiment in rotation"}]
+},
+{
+ n:"19", pass:"crop", std:"R.2.2", focus:"Central Idea", pick:1,
+ excerpt:"A well-managed mixed stock and crop farm can be free of purchased shortcuts and damaging chemicals, and the mix can help provide the farm with a broad base of marketable products. (paragraph 5)",
+ stem:"What central idea does this sentence support?",
+ opts:["A farm’s success is dependent on how quickly its crops can be turned over.","A mixed stock and crop farm is less profitable than other types of farms.","Chemicals are a necessary component for keeping farms free from pests.","Mixed stock and crop farming is a superior technique to monoculture scientific farming."],
+ ans:[3],
+ why:"The sentence lists advantages that monoculture cannot claim — no purchased inputs, no damaging chemicals, and many products to sell instead of one. Paired with the paragraph’s other claims (more natural animal lives, balanced manure, self-sustaining for generations), it supports the idea that mixed farming is the <b>superior</b> system.",
+ traps:{0:"Speed of turnover is never discussed.",1:"Backwards — “a broad base of marketable products” argues it is more profitable, not less.",2:"The passage treats chemicals as the problem: rotation “can reduce problems that would otherwise require chemical interventions.”"},
+ ev:[{p:5,t:"can be free of purchased shortcuts and damaging chemicals"},{p:5,t:"The odds of a mixed stock and crop farm being self-sustaining for generations are high"}]
+},
+{
+ n:"20", pass:"crop", std:"R.2.1", focus:"Structure", pick:1,
+ stem:"How does the author use text structures to convey meaning?",
+ opts:["The author uses cause-and-effect and sequence structures to convey the steps farmers can use to create two- and three-field systems and the effects the systems will have.","The author uses chronological and compare-and-contrast structures to argue that a return to past farming methods can help solve current farming problems.","The author uses description and problem-and-solution structures to explain how the current scientific farming methods have solved the problems that farmers had in the past.","The author uses description and compare-and-contrast structures to demonstrate that scientific farming is superior to traditional farming."],
+ ans:[1],
+ why:"Two structures are working at once. <b>Chronological</b>: the passage marches from the earliest farming through the Middle Ages to the twentieth century to today. <b>Compare-and-contrast</b>: traditional mixed farming is set against monoculture “scientific” farming at every turn. The combination builds the argument that going back to the older method solves today’s problems.",
+ traps:{0:"The author never gives farmers steps to follow; this is history, not instructions.",2:"Reversed — scientific farming <i>caused</i> the problems, it did not solve them.",3:"The comparison is real, but the verdict is the opposite: traditional farming comes out ahead."},
+ ev:[{p:2,t:"For much of history, however, this mixed stock and crop farming was done on a highly irregular basis"},{p:4,t:"The problems arising from monoculture “scientific” farming have led many farmers to take up mixed crop and livestock farming again"}]
+},
+{
+ n:"21", pass:"crop", std:"R.3.4", focus:"Rhetoric", pick:1,
+ stem:"In paragraph 5, how does the author use an appeal to logic to develop the idea that mixed stock and crop farming is a method farmers should use?",
+ opts:["by focusing on the causes and effects of scientific farming, especially the harm it causes","by pointing out the benefits and drawbacks of mixed stock and crop farming","by explaining the reasons why stock and crop farming methods are superior","by acknowledging and addressing any counterclaims to the author’s argument"],
+ ans:[2],
+ why:"Paragraph 5 is a stacked list of reasons: free of purchased shortcuts and chemicals, a broad base of marketable products, more natural lives for animals, manure balanced with the farm, high odds of being self-sustaining. Reason after reason, all pointing one way — that is a <b>logical appeal built on why the method is better</b>.",
+ traps:{0:"The harms of scientific farming are covered in paragraphs 3 and 4, not 5.",1:"Nearly right — the paragraph does end on complex economics — but it is overwhelmingly benefits, so “benefits and drawbacks” misdescribes the balance.",3:"No opposing argument is named or answered."},
+ ev:[{p:5,t:"The animals on a mixed-crop farm are almost always able to lead more natural lives"},{p:5,t:"reducing or eliminating the problem of waste removal or management"}]
+},
+
+/* ---------- THE COSTS OF THE TRANSPORTATION OF GOODS ---------- */
+{
+ n:"22", pass:"transport", std:"V.1.3", focus:"Context and Connotation", pick:1,
+ excerpt:"Our many nations all need the products produced around the world, and our transportation methods allow us to make use of regional advantages at every stage of production, manufacture, and sale. (paragraph 4)",
+ stem:"What is the meaning of <i>manufacture</i>, as it is used in the passage?",
+ opts:["development","advertising","assembly","industrial"],
+ ans:[2],
+ why:"<i>Manufacture</i> sits in a three-stage list — production, manufacture, sale — so it must name the middle step: putting the thing together. Paragraph 1 confirms it by tracing raw goods → processed materials → components → finished goods. That is <b>assembly</b>.",
+ traps:{0:"“Development” is planning or growth, which happens before anything is built.",1:"“Advertising” belongs with sale, the stage listed after manufacture.",3:"“Industrial” is an adjective; the sentence needs a noun naming a stage."},
+ ev:[{p:4,t:"at every stage of production, manufacture, and sale"},{p:1,t:"from raw goods to processed materials to simple components of complex processes to finished goods"}]
+},
+{
+ n:"23", pass:"transport", std:"R.2.3", focus:"Purpose and Perspective", pick:1,
+ excerpt:"Most shipping containers are used only a few times, much like a disposable food container. (paragraph 2)",
+ stem:"How does the simile “much like a disposable food container” help to achieve the author’s purpose?",
+ opts:["It points out how much food is needlessly wasted throughout the world.","It emphasizes how wasteful current transportation methods can be.","It highlights the importance of recycling containers.","It highlights the negative effects of relying on fossil fuels."],
+ ans:[1],
+ why:"The comparison takes something enormous (a steel shipping container) and likens it to something we throw away without a thought. That mismatch is the point — it makes the reader feel the scale of the <b>waste</b> built into how we move goods, which is exactly what paragraph 2 is cataloging.",
+ traps:{0:"The simile borrows the image of a food container; it makes no claim about wasted food.",2:"Recycling is never mentioned as a solution anywhere in the passage.",3:"Fossil fuels are a separate cost listed later in the paragraph."},
+ ev:[{p:2,t:"Most shipping containers are used only a few times, much like a disposable food container"}]
+},
+{
+ n:"24A", pass:"transport", std:"R.2.2", focus:"Central Idea", pick:1, part:"Part A",
+ pairNote:"This question has two parts. First answer Part A, then answer Part B.",
+ stem:"What is the author’s central idea in paragraph 2?",
+ opts:["Pollution from burning fossil fuels contributes to the high cost of transportation.","Many people think that the cost of transporting goods is limited to the cost of paying truckers.","Many factors must be considered when calculating the costs of transporting goods.","Shipping containers are only used a few times to transport goods before they are discarded."],
+ ans:[2],
+ why:"The paragraph’s own topic sentence sets it up: “Transportation is just the first hint of the costs actually involved.” Everything after that is a list of additional costs — fuels, environmental damage, building vehicles, containers, roads, railways, policing waterways, pollution. The central idea is that <b>many factors</b> go into the true cost.",
+ traps:{0:"Pollution is one item on the list, not the idea that organizes it.",1:"This is the misconception the author opens with and then corrects — a setup, not the central idea.",3:"Another single supporting detail."},
+ ev:[{p:2,t:"Transportation is just the first hint of the costs actually involved"},{p:2,t:"We have to factor in the various fuels used in transportation"}]
+},
+{
+ n:"24B", pass:"transport", std:"R.2.2", focus:"Central Idea", pick:1, part:"Part B",
+ stem:"How well does the author support the central idea of paragraph 2?",
+ opts:["The central idea is not well supported because the author does not give specifics about how much truckers are paid.","The central idea is not well supported because the author does not explain how burning fossil fuels causes pollution.","The central idea is well supported because the author gives facts to explain why shipping containers are used for only a short time.","The central idea is well supported because the author gives specific examples that factor into the high cost of transportation."],
+ ans:[3],
+ why:"If the claim is “many factors must be considered,” the proof is a list of factors — and the author supplies one: fuels, drilling and refining damage, manufacturing trucks/trains/ships, single-use containers, roads and railways, policing waterways, pollution. Support matches claim, so it is <b>well supported by specific examples</b>.",
+ traps:{0:"Trucker pay is the misconception being corrected; exact figures would not strengthen a claim about <i>other</i> costs.",1:"The mechanism of pollution is not needed — the claim is that pollution is a cost, not how it forms.",2:"The author never explains <i>why</i> containers are short-lived; that fact is offered as an example, not analyzed."},
+ ev:[{p:2,t:"Transportation costs also go toward maintaining roads and railways, building ships, and policing our waterways"}]
+},
+{
+ n:"25", pass:"transport", std:"V.1.2", focus:"Morphology", pick:1,
+ excerpt:"Improving these systems can only help our economy and our ecology, leading to more prudent forms of transportation—ones that use more desirable fuels and less wasteful approaches. (paragraph 3)",
+ stem:"The word <i>prudent</i> comes from the Latin <i>provident</i>, which means “foreseeing, attending to.” Using this information, what is the meaning of <i>prudent</i> in this sentence?",
+ opts:["respectful","sensible","careless","impractical"],
+ ans:[1],
+ why:"Someone who foresees and attends to consequences is thinking ahead — acting wisely. The sentence then defines it by example: prudent forms of transportation “use more desirable fuels and less wasteful approaches.” That is the <b>sensible</b> choice.",
+ traps:{0:"“Respectful” concerns how you treat people, not how well you plan.",2:"“Careless” is the opposite of foreseeing and attending to.",3:"“Impractical” contradicts the whole sentence, which praises these forms as improvements."},
+ ev:[{p:3,t:"leading to more prudent forms of transportation—ones that use more desirable fuels and less wasteful approaches"}]
+},
+{
+ n:"26", pass:"transport", std:"R.2.1", focus:"Structure", pick:1,
+ stem:"How does the author use text structures to convey meaning?",
+ opts:["The author uses compare-and-contrast and problem/solution structures to explain how different nations can reduce their reliance on transportation systems.","The author uses description and sequence structures to outline the steps needed to get a product from one place to another.","The author uses description and problem/solution structures to convey how wasteful and costly our current transportation systems are.","The author uses chronological and compare-and-contrast structures to explain how current transportation systems are better than older methods."],
+ ans:[2],
+ why:"Paragraphs 1 and 2 <b>describe</b> the system and pile up its hidden costs — that is the problem. Paragraphs 3 and 4 turn to logistics, better fuels, wildlife-aware roads, and less back-and-forth shipping — those are the <b>solutions</b>. Description into problem/solution.",
+ traps:{0:"The author says we are “past the point of escaping transportation,” so reducing reliance is not the proposal.",1:"Paragraph 1 does trace a product’s journey, but that is background, not a how-to sequence.",3:"No timeline and no old-versus-new comparison appear."},
+ ev:[{p:2,t:"It is easy to think of transportation as costing us nothing"},{p:3,t:"Logistics is the skill of planning all aspects of transportation for improved effectiveness and for reduced costs and damages"}]
+},
+{
+ n:"27", pass:"transport", std:"R.3.4", focus:"Rhetoric", pick:1,
+ stem:"How does the rhetoric used in paragraph 4 help develop the author’s purpose?",
+ opts:["The use of rhetorical questions prompts the reader to think about ways to improve transportation.","The use of an emotional appeal leaves the reader with a better understanding of the negative effects of transportation.","The use of figurative language highlights the complexity of transportation.","The use of antithesis emphasizes the importance of transportation to the world."],
+ ans:[0],
+ why:"Paragraph 4 opens with “How do we proceed?” and turns again on “How can we improve the ways we use transportation?” Questions the author does not fully answer hand the thinking to the reader — which fits the closing call to “continually find new ways to innovate.”",
+ traps:{1:"The final paragraph is forward-looking and practical, not emotional.",2:"The simile is back in paragraph 2; paragraph 4 is written plainly.",3:"Antithesis pairs opposites in balanced phrasing. The costs-and-benefits mention here is not structured that way."},
+ ev:[{p:4,t:"How do we proceed?"},{p:4,t:"How can we improve the ways we use transportation?"}]
+},
+
+/* ---------- MAJORITY OPINION ---------- */
+{
+ n:"28", pass:"majority", std:"R.2.1", focus:"Structure", pick:1,
+ stem:"How do the text’s structures convey the author’s purpose?",
+ opts:["The use of description and problem/solution structures highlights problems with different student groups and the ways they can be resolved.","The use of description and cause-and-effect structures helps explain the Equal Access Act and outline the causes and effects of a student group being considered “noncurriculum.”","The use of sequence and problem/solution structures details the various steps students would need to take to form a “noncurriculum related student group” that is protected by the Act.","The use of chronological and compare-and-contrast structures shows how different types of curriculum and noncurriculum student groups develop over time."],
+ ans:[1],
+ why:"The opinion first <b>describes</b> the Act by quoting it and defining its terms, then works in <b>cause and effect</b>: <i>if</i> a school allows even one noncurriculum related group, <i>then</i> the Act’s obligations are triggered and the school may not turn away other clubs. Definition plus consequence.",
+ traps:{0:"The Court is interpreting a statute, not troubleshooting clubs.",2:"No steps are addressed to students; the audience is schools and courts.",3:"There is no timeline — the analysis is about categories, not change over time."},
+ ev:[{p:2,t:"the Act’s obligations are triggered and the school may not deny other clubs"},{p:3,t:"a student group directly relates to a school’s curriculum if the subject matter of the group is actually taught"}]
+},
+{
+ n:"29", pass:"majority", std:"R.2.2", focus:"Central Idea", pick:1,
+ stem:"How does the author support the central idea that the Equal Access Act prohibits public schools from disallowing school clubs based on the content of their speech?",
+ opts:["by providing data about student groups and the Act’s effects on these groups","by listing the different reasons and methods for creating student groups","by providing an excerpt from the Act and explaining how it applies to student groups","by listing specific details about the efforts in public schools to fairly establish student groups"],
+ ans:[2],
+ why:"Paragraph 1 sets up the quotation — “Specifically, the Act provides:” — and the block quote delivers the statute’s exact words. Everything afterward unpacks that language: what “limited open forum,” “meeting,” and “noninstructional time” mean, then how the rule lands on French clubs, student government, band, chess, and stamp collecting.",
+ traps:{0:"No numbers or studies appear anywhere in the excerpt.",1:"The opinion is about which groups the Act covers, not how to start one.",3:"No school’s efforts are described; Westside’s facts stay outside this excerpt."},
+ ev:[{p:1,t:"Specifically, the Act provides:"},{p:3,t:"we think that the term “noncurriculum related student group” is best interpreted broadly"}]
+},
+{
+ n:"30", pass:"majority", std:"R.3.4", focus:"Rhetoric", pick:1,
+ stem:"How does the author use an appeal to logic in paragraph 3?",
+ opts:["by giving hypothetical examples of when the Act’s protections would not go into effect","by outlining events that led to the creation of the Equal Access Act","by defining the meaning of “noncurriculum related student groups”","by providing examples of how the Act affected different student groups in the past"],
+ ans:[0],
+ why:"The Court sets out the conditions under which a group <i>is</i> curriculum-related — the subject is taught or will soon be taught, it concerns the courses as a whole, or participation is required for a course. Each condition is a hypothetical case in which the Act is <b>not</b> triggered, and the illustrations follow immediately: a French club at a school that teaches French, student government, band for credit. “The existence of such groups at a school would not trigger the Act’s obligations.”",
+ traps:{1:"No legislative history or backstory is given in the majority excerpt.",2:"Very tempting — the paragraph does define the term. But the question asks how the Court appeals to <i>logic</i>, and the reasoning works through hypothetical cases that test the definition.",3:"Nothing here is historical; every example is “if a school did X.”"},
+ ev:[{p:3,t:"a student group directly relates to a school’s curriculum if the subject matter of the group is actually taught, or will soon be taught, in a regularly offered course"},{p:4,t:"The existence of such groups at a school would not trigger the Act’s obligations"}]
+},
+{
+ n:"31", pass:"majority", std:"R.2.4", focus:"Argument", pick:1,
+ excerpt:"Thus, even if a public secondary school allows only one “noncurriculum related student group” to meet, the Act’s obligations are triggered and the school may not deny other clubs, on the basis of the content of their speech, equal access to meet on school premises during noninstructional time. (paragraph 2)",
+ stem:"Which statement correctly evaluates the validity of this claim?",
+ opts:["The claim is invalid because the author does not adequately explain what circumstances are required for the Act to go into effect.","The claim is invalid because the authors do not address the implications of this interpretation for schools.","The claim is valid because the author provides evidence of prior Court decisions to support the interpretation.","The claim is valid because the author bases the claim on the language of the Equal Access Act itself."],
+ ans:[3],
+ why:"Notice the word “Thus” — the sentence is a conclusion drawn from what came just before: the Act’s own quoted text plus its statutory definitions of “limited open forum,” “meeting,” and “noninstructional time.” A claim built directly on the statute’s language is <b>valid</b> reasoning.",
+ traps:{0:"The opposite — paragraph 2 is almost entirely a list of the required circumstances.",1:"Implications are addressed at length in paragraphs 3–5, with worked examples.",2:"Tempting for a court case, but the <i>majority</i> excerpt cites no prior decisions. (Widmar v. Vincent appears only in the dissent.)"},
+ ev:[{p:2,t:"A “limited open forum” exists whenever a public secondary school"},{p:1,t:"Specifically, the Act provides:"}]
+},
+
+/* ---------- DISSENTING OPINION ---------- */
+{
+ n:"32", pass:"dissent", std:"V.1.2", focus:"Morphology", pick:1,
+ excerpt:"First, the text of the statute says that a school creates a limited open forum if it allows meetings on school premises by “noncurriculum related student groups,” a concept that is ambiguous at best. (paragraph 2)",
+ stem:"The word <i>ambiguous</i> comes from the Latin <i>ambiguus</i>, which means “doubtful.” Using this information, what do you think the word <i>ambiguous</i> means in this sentence?",
+ opts:["definite","distinct","unclear","unrelated"],
+ ans:[2],
+ why:"If the root means “doubtful,” the word must describe something you cannot pin down. Context seals it: because the concept is ambiguous, Justice Stephens says “the statute must be interpreted by reference to its general purpose.” You only need outside help interpreting something that is <b>unclear</b>.",
+ traps:{0:"“Definite” is the opposite — and if the term were definite, no interpretation would be needed.",1:"“Distinct” means clearly separate, again the reverse of doubtful.",3:"“Unrelated” confuses the word with the phrase it modifies, “noncurriculum <i>related</i>.”"},
+ ev:[{p:2,t:"a concept that is ambiguous at best"},{p:2,t:"because this concept is ambiguous, the statute must be interpreted by reference to its general purpose"}]
+},
+{
+ n:"33", pass:"dissent", std:"V.1.3", focus:"Context and Connotation", pick:1,
+ excerpt:"Can Congress really have intended to issue an order to every public high school in the Nation stating, in substance, that if you sponsor a chess club, a scuba diving club, or a French club without having formal classes in those subjects you must also open your doors to every religious, political, or social organization, no matter how controversial or distasteful its views may be? (paragraph 1)",
+ stem:"How does the paragraph’s context help you to understand the meaning of <i>distasteful</i>?",
+ opts:["It reveals that <i>distasteful</i> means “intriguing.”","It reveals that <i>distasteful</i> means “flavorless.”","It reveals that <i>distasteful</i> means “unpleasant.”","It reveals that <i>distasteful</i> means “amusing.”"],
+ ans:[2],
+ why:"<i>Distasteful</i> is paired with “controversial” by the conjunction <i>or</i>, so it carries the same negative charge. The whole sentence is built to make the Court’s reading sound unreasonable — schools forced to admit groups <i>no matter how</i> objectionable. That requires a word meaning <b>unpleasant</b>, even offensive.",
+ traps:{0:"“Intriguing” is positive and would defeat the justice’s point.",1:"“Flavorless” is the literal food meaning of <i>taste</i> — a trap for readers who stop at the root instead of reading the sentence.",3:"“Amusing” is positive and unrelated to “controversial.”"},
+ ev:[{p:1,t:"no matter how controversial or distasteful its views may be"}]
+},
+{
+ n:"34", pass:"dissent", std:"R.3.4", focus:"Rhetoric", pick:1,
+ excerpt:"Can Congress really have intended to issue an order to every public high school in the Nation stating, in substance, that if you sponsor a chess club, a scuba diving club, or a French club without having formal classes in those subjects you must also open your doors to every religious, political, or social organization, no matter how controversial or distasteful its views may be? (paragraph 1)",
+ stem:"How does the author’s use of a rhetorical question help develop the purpose?",
+ opts:["The author uses a rhetorical question to promote his distrust of Congress’s ability to make sensible judgments.","The author uses a rhetorical question to critique the contents and true intentions of the Equal Access Act.","The author uses a rhetorical question to underscore his disagreement with the Court’s majority opinion on the case.","The author uses a rhetorical question to convey his belief that the number of clubs in public schools is excessive."],
+ ans:[1],
+ why:"The question is aimed at the Act itself: what did Congress actually <i>intend</i> this statute to require? By stacking chess, scuba diving, and French clubs against “every religious, political, or social organization,” Stephens makes the sweeping reading sound absurd, then answers himself — “I think not.” His whole opinion then turns on recovering Congress’s true intent.",
+ traps:{0:"He assumes Congress was sensible; that is why he doubts it meant this.",2:"He certainly disagrees with the majority — but this opening question never mentions the Court. It targets the statute’s meaning, and the comparison to the majority comes later.",3:"He objects to which groups must be admitted, not to how many clubs exist."},
+ ev:[{p:1,t:"Can Congress really have intended to issue an order to every public high school in the Nation"},{p:1,t:"I think not"}]
+},
+{
+ n:"35", pass:"dissent", std:"R.2.3", focus:"Purpose and Perspective", pick:1,
+ stem:"How does the author use an appeal to logic to achieve his purpose?",
+ opts:["He details the Court’s identification of three guides used to determine Congress’s intent.","He describes in depth the causes and effects of the previous <i>Widmar</i> v. <i>Vincent</i> case.","He gives a complete summary of the Equal Access Act’s legislative history.","He identifies possible biases on the part of other justices on the Court."],
+ ans:[0],
+ why:"Stephens builds his reasoning on shared ground: “The Court correctly identifies three useful guides to Congress’ intent,” then walks through them in order — <i>First</i>, the statute’s text is ambiguous; <i>Second</i>, an ambiguous term must be read against the law’s general purpose; <i>Third</i>, the legislative history points to <i>Widmar</i>. Numbered, sequential reasoning is a textbook logical appeal.",
+ traps:{1:"<i>Widmar</i> is used as a comparison point, not analyzed for causes and effects.",2:"He refers to the legislative history but never summarizes it completely.",3:"He disputes the majority’s reasoning, never their motives."},
+ ev:[{p:2,t:"The Court correctly identifies three useful guides to Congress’ intent"},{p:2,t:"First, the text of the statute says"}]
+},
+{
+ n:"36", pass:"dissent", std:"R.2.3", focus:"Purpose and Perspective", pick:1,
+ excerpt:"And it seems absurd to presume that Westside has invoked the same strategy by recognizing clubs like the Swimming Timing Team and Sub-surfers which, though they may not correspond directly to anything in Westside’s course offerings, are no more controversial than a grilled cheese sandwich. (paragraph 3)",
+ stem:"How does the description “no more controversial than a grilled cheese sandwich” help achieve the author’s purpose?",
+ opts:["The description serves to critique the lack of rigorous clubs at Westside compared with those at the University of Missouri.","The description is meant to encourage clubs at Westside to explore more controversial topics.","The description is meant to point out that Westside should focus on admitting clubs that correspond better with the school’s curriculum.","The description emphasizes the absurdity of equating the admission of controversial clubs with ones that are clearly noncontroversial."],
+ ans:[3],
+ why:"A grilled cheese sandwich is the least controversial thing imaginable — that is the joke, and the argument. If a Swimming Timing Team is that harmless, Stephens says, a school cannot reasonably be treated as having invited ideological debate just by recognizing it. He even signals the move with the word “absurd.”",
+ traps:{0:"He is not judging the clubs’ rigor; he is judging how controversial they are.",1:"He wants fewer controversial groups admitted, not more.",2:"He concedes these clubs do not match the curriculum — that is precisely why the majority’s rule catches them, and why he thinks the rule is wrong."},
+ ev:[{p:3,t:"And it seems absurd to presume that Westside has invoked the same strategy"},{p:3,t:"are no more controversial than a grilled cheese sandwich"}]
+},
+{
+ n:"37", pass:"dissent", std:"R.2.1", focus:"Structure", pick:1,
+ stem:"How do the text’s structures convey the author’s purpose?",
+ opts:["The use of description and cause-and-effect structures highlights the different types of student groups that exist and the effects that they have on students’ academic and professional lives.","The use of description and compare-and-contrast structures clarifies the intentions of Congress and distinguishes the circumstances surrounding Westside’s program and the <i>Widmar</i> v. <i>Vincent</i> case.","The use of sequence and cause-and-effect structures details the various steps that citizens need to take to present a case before the Supreme Court and the effects of different outcomes at the Court.","The use of chronological and problem/solution structures provides a timeline of events for the <i>Widmar</i> v. <i>Vincent</i> and <i>West Side Community Schools</i> v. <i>Mergens</i> cases and the problems that each presented to the Court."],
+ ans:[1],
+ why:"Stephens <b>describes</b> the Act’s design and the three guides to Congress’s intent, then <b>contrasts</b> two situations: “the distinctions between Westside’s program and the University of Missouri’s program in <i>Widmar</i>.” The contrast is the engine of his argument — a university forum is not the same as a high school recognizing a swim-timing club.",
+ traps:{0:"He never discusses effects on students’ academic or professional lives.",2:"No procedural steps for bringing a case appear anywhere.",3:"There is no timeline; <i>Widmar</i> is a point of comparison, not a date on a sequence."},
+ ev:[{p:3,t:"I believe that the distinctions between Westside’s program and the University of Missouri’s program in Widmar"},{p:2,t:"The Act’s basic design is easily summarized"}]
+},
+{
+ n:"38", pass:"dissent", alsoPass:"majority", std:"R.2.4", focus:"Argument", pick:1, both:true,
+ stem:"How do the authors of the two texts develop their opposing arguments differently?",
+ opts:["The author of the majority opinion focuses on the intentions of Congress, while the author of the dissenting opinion focuses on previous court cases relating to the Act.","The author of the majority opinion provides examples to explain key points of the Act, while the author of the dissenting opinion critiques Congress’s passage of the Act.","The author of the majority opinion provides direct quotations from the Act, while the author of the dissenting opinion provides direct quotations from the <i>Widmar</i> v. <i>Vincent</i> case.","The author of the majority opinion focuses on interpreting the Act’s language, while the author of the dissenting opinion focuses on what Congress’s intentions were in passing the Act."],
+ ans:[3],
+ why:"Put the two side by side. The majority works from the words: it quotes the statute, defines “limited open forum,” “meeting,” and “noninstructional time,” and reasons outward from that text. The dissent opens by asking what Congress “really… intended” and argues the term is ambiguous, so meaning must come from purpose and legislative history. <b>Text versus intent</b> — the classic split in how the two opinions are built.",
+ traps:{0:"Reversed. Congressional intent is the dissent’s theme, and the majority cites no prior cases.",1:"Half right — the majority does give examples — but the dissent critiques the Court’s <i>interpretation</i>, not Congress’s decision to pass the Act.",2:"The majority does quote the Act, but the dissent never quotes <i>Widmar</i>; it only refers to the case."},
+ ev:[]
+}
+
+]);
+</script>
+<script>
+/* ============================================================
+   GLOSSARY WORD LIST
+   sense = the meaning AS USED IN THIS PASSAGE (not the dictionary default).
+   cog   = true when Romance-language speakers have a usable cognate.
+   test  = true when the word is directly tested by a question.
+   ============================================================ */
+var WORDS = [
+{w:"minuscule",   s:"extremely small",                    cog:1, test:1},
+{w:"clambered",   s:"climbed awkwardly",                  cog:0},
+{w:"circuit",     s:"a route that repeats",               cog:1},
+{w:"unpaved",     s:"without a hard road surface",        cog:0},
+{w:"isolated",    s:"far from other places",              cog:1},
+{w:"jounced",     s:"shaken up and down",                 cog:0},
+{w:"rickety",     s:"old and likely to break",            cog:0},
+{w:"respective",  s:"belonging to each one separately",   cog:1},
+{w:"shimmied",    s:"moved by wiggling",                  cog:0},
+{w:"slumped",     s:"dropped down heavily",               cog:0},
+{w:"crucial",     s:"extremely important",                cog:1},
+{w:"livestock",   s:"farm animals",                       cog:0},
+{w:"enrolling",   s:"signing up to join",                 cog:0},
+{w:"agricultural",s:"about farming",                      cog:1},
+{w:"flock",       s:"a group of birds",                   cog:0},
+{w:"poultry",     s:"birds raised for food",              cog:0},
+{w:"ranch",       s:"a large livestock farm",             cog:1},
+{w:"accredited",  s:"officially approved",                cog:1},
+{w:"veterinarian",s:"an animal doctor",                   cog:1},
+{w:"steep",       s:"very difficult",                     cog:0},
+{w:"comprehend",  s:"to understand",                      cog:1},
+{w:"furious",     s:"extremely angry",                    cog:1},
+{w:"drab",        s:"dull and colorless",                 cog:0, test:1},
+{w:"tattered",    s:"torn and worn out",                  cog:0, test:1},
+{w:"verge",       s:"the edge of a road",                 cog:1},
+{w:"parched",     s:"dried out",                          cog:0},
+{w:"bleached",    s:"whitened",                           cog:1},
+{w:"sepulchral",  s:"like a tomb; deathly",               cog:1, test:1},
+{w:"heirloom",    s:"passed down through generations",    cog:0},
+{w:"meter",       s:"the rhythm pattern of a poem",       cog:1},
+{w:"enjambment",  s:"a sentence running past a line end", cog:1},
+{w:"syllables",   s:"beats of sound in a word",           cog:1},
+{w:"stressed",    s:"said with more force",               cog:0},
+{w:"pensive",     s:"thinking deeply",                    cog:1, test:1},
+{w:"scanned",     s:"fit the poem's rhythm",              cog:0},
+{w:"potholes",    s:"holes in a road",                    cog:0},
+{w:"express",     s:"fast, with few stops",               cog:1},
+{w:"reservation", s:"land governed by a Native nation",   cog:1},
+{w:"reliable",    s:"able to be depended on",             cog:1},
+{w:"suburban",    s:"of the area outside a city",         cog:1},
+{w:"transfer",    s:"a change from one bus to another",   cog:1},
+{w:"misty",       s:"filling with tears",                 cog:0},
+{w:"startled",    s:"suddenly frightened",                cog:0, test:1},
+{w:"headway",     s:"progress",                           cog:0},
+{w:"extended family", s:"relatives beyond parents and children", cog:0},
+{w:"scraped",     s:"saved with great effort",            cog:0},
+{w:"farrier",     s:"a person who makes horseshoes",      cog:0},
+{w:"breaker",     s:"one who trains horses harshly",      cog:0},
+{w:"tack",        s:"horse riding equipment",             cog:0},
+{w:"green",       s:"untrained; inexperienced",           cog:0},
+{w:"plough",      s:"a tool that cuts and turns soil",    cog:0},
+{w:"harness",     s:"straps that attach an animal",       cog:0},
+{w:"blacksmith",  s:"a worker who shapes iron",           cog:0},
+{w:"specialized", s:"needing special skill",              cog:1},
+{w:"disciplined", s:"strict and controlled",              cog:1},
+{w:"minimal",     s:"as little as possible",              cog:1},
+{w:"sulky",       s:"a light two-wheeled racing cart",    cog:0},
+{w:"skittish",    s:"nervous and easily frightened",      cog:0},
+{w:"jockeys",     s:"people who ride racehorses",         cog:1},
+{w:"apprenticeship", s:"training under a skilled worker", cog:1},
+{w:"wiry",        s:"thin but strong",                    cog:0},
+{w:"steamships",  s:"ships powered by steam",             cog:0},
+{w:"catalog",     s:"a book of goods to order",           cog:1},
+{w:"era",         s:"a period of history",                cog:1},
+{w:"resigned",    s:"accepting what cannot be changed",   cog:1, test:1},
+{w:"tenacity",    s:"stubborn persistence",               cog:1, test:1},
+{w:"detachment",  s:"lack of feeling or involvement",     cog:1, test:1},
+{w:"staples",     s:"basic foods eaten regularly",        cog:0},
+{w:"compost",     s:"rotted matter that enriches soil",   cog:1},
+{w:"irregular",   s:"not steady or even",                 cog:1},
+{w:"fallow",      s:"left unplanted to rest",             cog:0, test:1},
+{w:"rotated",     s:"changed in a repeating order",       cog:1},
+{w:"legumes",     s:"beans and pea plants",               cog:1},
+{w:"nitrogen",    s:"a nutrient plants need",             cog:1},
+{w:"manure",      s:"animal waste used to feed soil",     cog:0},
+{w:"monoculture", s:"growing only one crop",              cog:1},
+{w:"fertilizers", s:"substances added to feed soil",      cog:1},
+{w:"pest",        s:"an insect or animal that harms crops",cog:1},
+{w:"tilth",       s:"the overall condition of soil",      cog:0},
+{w:"aeration",    s:"air movement through soil",          cog:1},
+{w:"prevalence",  s:"how widespread something is",        cog:1},
+{w:"acreage",     s:"an area of land",                    cog:0},
+{w:"sustainable", s:"able to continue without harm",      cog:1},
+{w:"marketable",  s:"able to be sold",                    cog:1},
+{w:"revival",     s:"a return to use",                    cog:1},
+{w:"merchandise", s:"goods for sale",                     cog:1},
+{w:"manufacture", s:"putting parts together to build",    cog:1, test:1},
+{w:"components",  s:"parts of a whole",                   cog:1},
+{w:"refining",    s:"making a raw material pure",         cog:1},
+{w:"amass",       s:"to build up a large amount",         cog:1},
+{w:"disposable",  s:"meant to be thrown away",            cog:1, test:1},
+{w:"policing",    s:"guarding and controlling",           cog:1},
+{w:"waterways",   s:"rivers and channels for ships",      cog:0},
+{w:"reckoning",   s:"a full counting or accounting",      cog:0},
+{w:"logistics",   s:"planning how things move",           cog:1},
+{w:"prudent",     s:"sensible; thinking ahead",           cog:1, test:1},
+{w:"ecological",  s:"about the natural environment",      cog:1},
+{w:"migration",   s:"regular seasonal movement",          cog:1},
+{w:"inescapable", s:"impossible to avoid",                cog:1},
+{w:"innovate",    s:"to create new methods",              cog:1},
+{w:"statute",     s:"a written law",                      cog:1},
+{w:"forum",       s:"a place for open discussion",        cog:1},
+{w:"prohibited",  s:"not allowed",                        cog:1},
+{w:"discriminating", s:"treating unfairly",               cog:1},
+{w:"philosophical",  s:"about beliefs and ideas",         cog:1},
+{w:"secondary",   s:"high school level",                  cog:1},
+{w:"noninstructional", s:"outside of class time",         cog:1},
+{w:"curriculum",  s:"the courses a school teaches",       cog:1},
+{w:"legislative", s:"about lawmaking",                    cog:1},
+{w:"interpreted", s:"explained the meaning of",           cog:1},
+{w:"triggered",   s:"caused to start",                    cog:0},
+{w:"obligations", s:"legal duties",                       cog:1},
+{w:"premises",    s:"the buildings and grounds",          cog:1},
+{w:"competence",  s:"the authority and ability to act",   cog:1},
+{w:"sponsor",     s:"to officially support",              cog:1},
+{w:"distasteful", s:"unpleasant; offensive",              cog:0, test:1},
+{w:"controversial", s:"causing strong disagreement",      cog:1},
+{w:"ambiguous",   s:"unclear; open to two meanings",      cog:1, test:1},
+{w:"intent",      s:"what someone meant to do",           cog:1},
+{w:"advocacy",    s:"arguing in support of something",    cog:1},
+{w:"partisan",    s:"strongly taking one side",           cog:1},
+{w:"theological", s:"about religion",                     cog:1},
+{w:"ideological", s:"about a system of beliefs",          cog:1},
+{w:"pedagogical", s:"about teaching",                     cog:1},
+{w:"presume",     s:"to assume without proof",            cog:1},
+{w:"absurd",      s:"clearly unreasonable",               cog:1, test:1},
+{w:"invoked",     s:"called upon; put into use",          cog:1},
+{w:"comparable",  s:"similar enough to compare",          cog:1}
+];
+/* Aligned to WORDS by index. Passage sense, not dictionary default. */
+var TR_es = ["minúsculo","trepó","recorrido","sin pavimentar","aislado","sacudido","destartalado","respectivo","se deslizó","se desplomó","crucial","ganado","inscribirse","agrícola","parvada","aves de corral","rancho","acreditado","veterinario","difícil","comprender","furioso","apagado","harapiento","borde","reseco","blanqueado","sepulcral","heredado","métrica","encabalgamiento","sílabas","acentuado","pensativo","midió","baches","expreso","reserva","confiable","suburbano","transbordo","llorosos","sobresaltado","avance","familia extensa","ahorró","herrador","domador","arreos","inexperto","arado","arnés","herrero","especializado","disciplinado","mínimo","sulky","asustadizo","jinetes","aprendizaje","fibroso","barcos de vapor","catálogo","era","resignado","tenacidad","desapego","alimentos básicos","abono","irregular","en barbecho","rotado","legumbres","nitrógeno","estiércol","monocultivo","fertilizantes","plaga","condición del suelo","aireación","prevalencia","superficie","sostenible","vendible","resurgimiento","mercancía","fabricación","componentes","refinación","acumular","desechable","vigilancia","vías fluviales","recuento","logística","prudente","ecológico","migración","ineludible","innovar","estatuto","foro","prohibido","discriminar","filosófico","secundaria","fuera de clase","currículo","legislativo","interpretado","activado","obligaciones","instalaciones","competencia","patrocinar","desagradable","controvertido","ambiguo","intención","defensa","partidista","teológico","ideológico","pedagógico","presumir","absurdo","invocado","comparable"];
+
+var TR_ht = ["tou piti","moute","wout","san asfalt","izole","souke","brenzeng","respektif","glise","tonbe","esansyèl","bèt fèm","enskri","agrikòl","bann","volay","ranch","akredite","veterinè","difisil","konprann","fache anpil","tèn","chire","bò wout","sèk","blanchi","tonbo","eritaj","mèt","anjanbman","silab","aksantye","kalm ap reflechi","mezire","twou nan wout","rapid","rezèvasyon","serye","banlye","chanjman bis","plen dlo","sezi","pwogrè","fanmi elaji","ekonomize","fòjron","domte","ekipman chwal","san esperyans","chari","arne","fòjron","espesyalize","disipline","minim","ti charèt kous","pè fasil","jokèy","aprantisaj","mens men fò","bato vapè","katalòg","epòk","reziyen","pèseverans","detachman","manje debaz","konpòs","iregilye","kite poze","woule","pwa","azòt","fimye","yon sèl kilti","angrè","ravaj","kondisyon tè","aerasyon","frekans","sipèfisi tè","dirab","vann fasil","renesans","machandiz","fabrikasyon","pyès","rafinaj","anpile","jete apre","siveyans","chemen dlo","konte","lojistik","pridan","ekolojik","migrasyon","inevitab","envante","lwa","forum","entèdi","fè diskriminasyon","filozofik","segondè","deyò klas","pwogram lekòl","lejislatif","entèprete","deklanche","obligasyon","lokal","konpetans","patwone","dezagreyab","kontwovèsyal","pa klè","entansyon","defans","patizan","teyolojik","ideolojik","pedagojik","sipoze","absid","envoke","konparab"];
+
+var TR_pt = ["minúsculo","subiu","percurso","sem asfalto","isolado","sacudido","caindo aos pedaços","respectivo","esgueirou-se","afundou","crucial","gado","inscrever-se","agrícola","bando","aves","fazenda","credenciado","veterinário","difícil","compreender","furioso","sem graça","esfarrapado","beira","ressecado","branqueado","sepulcral","de herança","métrica","enjambement","sílabas","tônico","pensativo","mediu","buracos","expresso","reserva","confiável","suburbano","baldeação","marejados","assustado","progresso","família estendida","economizou","ferrador","domador","arreios","inexperiente","arado","arreio","ferreiro","especializado","disciplinado","mínimo","sulky","assustadiço","jóqueis","aprendizado","magro e forte","navios a vapor","catálogo","era","resignado","tenacidade","distanciamento","alimentos básicos","composto","irregular","em pousio","rotacionado","leguminosas","nitrogênio","esterco","monocultura","fertilizantes","praga","condição do solo","aeração","prevalência","área de terra","sustentável","comercializável","retomada","mercadoria","fabricação","componentes","refino","acumular","descartável","policiamento","vias navegáveis","balanço","logística","prudente","ecológico","migração","inevitável","inovar","estatuto","fórum","proibido","discriminar","filosófico","secundário","fora da aula","currículo","legislativo","interpretado","acionado","obrigações","instalações","competência","patrocinar","desagradável","controverso","ambíguo","intenção","defesa","partidário","teológico","ideológico","pedagógico","presumir","absurdo","invocado","comparável"];
+
+var TR_fr = ["minuscule","grimpé","circuit","non goudronné","isolé","secoué","branlant","respectif","se faufila","s'affaissa","crucial","bétail","s'inscrire","agricole","troupeau","volaille","ranch","accrédité","vétérinaire","difficile","comprendre","furieux","terne","en lambeaux","bord","desséché","blanchi","sépulcral","de famille","mètre","enjambement","syllabes","accentué","pensif","scandé","nids-de-poule","express","réserve","fiable","de banlieue","correspondance","embués","surpris","progrès","famille élargie","économisé","maréchal-ferrant","dresseur brutal","harnachement","inexpérimenté","charrue","harnais","forgeron","spécialisé","discipliné","minimal","sulky","ombrageux","jockeys","apprentissage","sec et nerveux","bateaux à vapeur","catalogue","ère","résigné","ténacité","détachement","aliments de base","compost","irrégulier","en jachère","alterné","légumineuses","azote","fumier","monoculture","engrais","nuisible","état du sol","aération","prévalence","superficie","durable","commercialisable","renouveau","marchandise","fabrication","composants","raffinage","accumuler","jetable","surveillance","voies navigables","bilan","logistique","prudent","écologique","migration","inéluctable","innover","loi","forum","interdit","discriminer","philosophique","secondaire","hors cours","programme scolaire","législatif","interprété","déclenché","obligations","locaux","compétence","parrainer","déplaisant","controversé","ambigu","intention","défense","partisan","théologique","idéologique","pédagogique","présumer","absurde","invoqué","comparable"];
+var TR_vi = ["cực nhỏ","trèo lên","lộ trình","chưa trải nhựa","biệt lập","xóc nảy","ọp ẹp","tương ứng","lách đi","ngồi phịch","rất quan trọng","gia súc","ghi danh","nông nghiệp","đàn","gia cầm","trang trại","được công nhận","bác sĩ thú y","khó khăn","hiểu","giận dữ","xám xịt","rách tả tơi","lề đường","khô cháy","bạc màu","như nấm mồ","gia truyền","nhịp thơ","vắt dòng","âm tiết","nhấn mạnh","trầm tư","đúng nhịp","ổ gà","tốc hành","khu tự trị","đáng tin cậy","ngoại ô","chuyển tuyến","rưng rưng","giật mình","tiến bộ","đại gia đình","dành dụm","thợ đóng móng ngựa","người thuần ngựa thô bạo","yên cương","chưa thuần","cái cày","dây cương","thợ rèn","chuyên biệt","kỷ luật","tối thiểu","xe đua hai bánh","dễ hoảng","nài ngựa","học nghề","gầy mà rắn chắc","tàu hơi nước","danh mục","thời đại","cam chịu","kiên trì","lãnh đạm","lương thực chính","phân hữu cơ","thất thường","bỏ hoang","luân canh","cây họ đậu","đạm","phân chuồng","độc canh","phân bón","sâu hại","chất đất","thông khí","mức phổ biến","diện tích đất","bền vững","bán được","sự hồi sinh","hàng hóa","chế tạo","linh kiện","tinh luyện","tích lũy","dùng một lần","tuần tra","đường thủy","tính toán đầy đủ","hậu cần","thận trọng","sinh thái","di cư","không thể tránh","đổi mới","đạo luật","diễn đàn","bị cấm","phân biệt đối xử","triết học","trung học","ngoài giờ học","chương trình học","lập pháp","diễn giải","kích hoạt","nghĩa vụ","khuôn viên","thẩm quyền","bảo trợ","khó chịu","gây tranh cãi","mơ hồ","ý định","vận động ủng hộ","phe phái","thần học","ý thức hệ","sư phạm","cho rằng","phi lý","viện dẫn","có thể so sánh"];
+
+var TR_ar = ["ضئيل جدا","تسلق بصعوبة","مسار متكرر","غير معبد","معزول","اهتز","متهالك","الخاص بكل منهم","تسللت","انهارت","بالغ الأهمية","الماشية","التسجيل","زراعي","سرب","الدواجن","مزرعة","معتمد","طبيب بيطري","صعب","يفهم","غاضب جدا","باهت","ممزق","حافة الطريق","جاف","مبيض","كالقبر","متوارث","وزن الشعر","التضمين","مقاطع صوتية","مشدد","مستغرق في التفكير","وافق الوزن","حفر الطريق","سريع","محمية","موثوق","ضاحية","تحويل","مغرورقة","مذعور","تقدم","الأسرة الممتدة","ادخر بجهد","بيطار الحدوات","مروض قاس","عدة الخيل","غير مدرب","محراث","طقم اللجام","حداد","متخصص","منضبط","أدنى","عربة سباق خفيفة","سريع الفزع","فرسان السباق","التدريب المهني","نحيل قوي","سفن بخارية","كتالوج","حقبة","مستسلم للواقع","المثابرة","انفصال عاطفي","أغذية أساسية","سماد عضوي","غير منتظم","أرض بور","تناوب","بقوليات","نيتروجين","روث","زراعة أحادية","أسمدة","آفة","حالة التربة","تهوية","انتشار","مساحة أرض","مستدام","قابل للبيع","إحياء","بضائع","تصنيع","مكونات","تكرير","يراكم","يرمى بعد الاستعمال","حراسة","ممرات مائية","حساب شامل","الخدمات اللوجستية","حصيف","بيئي","هجرة","لا مفر منه","يبتكر","قانون مكتوب","منتدى","محظور","التمييز","فلسفي","ثانوي","خارج وقت الدراسة","المنهج الدراسي","تشريعي","فسر","أثار","التزامات","مبنى المدرسة","صلاحية","يرعى","مستهجن","مثير للجدل","غامض","نية","مناصرة","متحيز لفريق","لاهوتي","أيديولوجي","تربوي","يفترض","سخيف","استند إلى","قابل للمقارنة"];
+
+var TR_zh = ["极小的","费力爬上","固定路线","未铺路面的","偏僻的","颠簸","摇摇欲坠的","各自的","扭身挤过","瘫坐","至关重要的","牲畜","报名入学","农业的","禽群","家禽","牧场","经认证的","兽医","激烈的","理解","极其愤怒","暗淡无色的","破烂的","路边","干枯的","褪成白色的","坟墓般的","祖传的","格律","跨行连续","音节","重读的","沉思的","合乎格律","路面坑洞","快车","保留地","可靠的","郊区的","换乘","含泪的","受惊的","进展","大家庭","省吃俭用攒下","钉蹄铁匠","粗暴驯马人","马具","未受训练的","犁","挽具","铁匠","专门的","严格的","最少的","轻便双轮赛车","易受惊的","赛马骑师","学徒期","精瘦结实的","蒸汽船","商品目录","时代","认命的","坚韧不拔","冷漠超然","主食","堆肥","不规律的","休耕的","轮作","豆科植物","氮","粪肥","单一种植","化肥","害虫","土壤状况","通气","普遍程度","土地面积","可持续的","可销售的","复兴","商品","制造组装","零部件","精炼","积累","一次性的","巡查","水道","全面核算","物流","审慎的","生态的","迁徙","无法避免的","创新","法规","公开论坛","禁止","歧视","哲学的","中学的","非教学时间","课程体系","立法的","解释","触发","义务","校园场地","职权能力","主办","令人反感的","有争议的","含糊不清的","意图","倡导","党派偏向的","神学的","意识形态的","教学法的","臆断","荒谬的","援引","可比较的"];
+
+var TR_ru = ["крошечный","неуклюже забрался","маршрут","без покрытия","отдалённый","трясло","расшатанный","соответствующий","протиснулась","плюхнулась","решающий","скот","записаться","сельскохозяйственный","стая","домашняя птица","ранчо","аккредитованный","ветеринар","жёсткий","понимать","в ярости","тусклый","истрёпанный","обочина","иссохший","выбеленный","могильный","фамильный","стихотворный размер","перенос строки","слоги","ударный","задумчивый","соответствовал размеру","выбоины","экспресс","резервация","надёжный","пригородный","пересадка","слезящиеся","испуганный","продвижение","большая семья","копил с трудом","кузнец-коваль","грубый объездчик","конская упряжь","необъезженный","плуг","упряжь","кузнец","специализированный","строгий","минимальный","качалка для бегов","пугливый","жокеи","ученичество","жилистый","пароходы","каталог","эпоха","смирившийся","упорство","отстранённость","основные продукты","компост","нерегулярный","под паром","чередовался","бобовые","азот","навоз","монокультура","удобрения","вредитель","состояние почвы","аэрация","распространённость","площадь земли","устойчивый","пригодный для продажи","возрождение","товары","изготовление","компоненты","очистка","накапливать","одноразовый","охрана","водные пути","полный подсчёт","логистика","благоразумный","экологический","миграция","неизбежный","внедрять новое","закон","открытая площадка","запрещено","дискриминация","философский","средней школы","вне учебного времени","учебная программа","законодательный","истолкованный","запускается","обязательства","территория школы","компетенция","поддерживать официально","неприятный","спорный","двусмысленный","намерение","отстаивание","пристрастный","богословский","идеологический","педагогический","предполагать без доказательств","абсурдный","сослался на","сопоставимый"];
+var TR_ko = ["아주 작은","힘겹게 올라탔다","정해진 순환 노선","포장되지 않은","외딴","심하게 흔들렸다","낡아 삐걱거리는","각자의","비집고 들어갔다","털썩 앉았다","매우 중요한","가축","등록하는","농업의","무리","가금류","목장","공인된","수의사","치열한","이해하다","몹시 화난","칙칙한","너덜너덜한","길가","바싹 마른","색이 바랜","무덤 같은","대대로 물려받은","운율","행간 걸침","음절","강세가 있는","깊이 생각에 잠긴","운율에 맞았다","도로 구멍","급행","원주민 보호구역","믿을 수 있는","교외의","환승","눈물이 고인","깜짝 놀란","진전","대가족","힘겹게 모았다","편자공","거칠게 길들이는 사람","마구","훈련되지 않은","쟁기","마구 장치","대장장이","전문적인","엄격한","최소한의","경주용 이륜마차","잘 놀라는","기수","도제 수습","마르고 다부진","증기선","상품 목록","시대","체념한","끈질김","무심함","주식","퇴비","불규칙한","묵히는","돌려짓기한","콩과 식물","질소","거름","단일 재배","비료","해충","토양 상태","통기","만연 정도","토지 면적","지속 가능한","팔 수 있는","부활","상품","제조 조립","구성 부품","정제","축적하다","일회용의","단속","수로","전면적 계산","물류","신중한","생태의","이동","피할 수 없는","혁신하다","법령","공개 토론의 장","금지된","차별하는","철학적인","중등의","수업 외 시간","교육 과정","입법의","해석된","촉발된","의무","학교 구내","권한","공식 후원하다","불쾌한","논란이 많은","모호한","의도","옹호","당파적인","신학의","이념의","교육학의","단정하다","터무니없는","근거로 삼은","비교할 만한"];
+
+var TR_tl = ["napakaliit","umakyat nang paganoon","paulit-ulit na ruta","hindi semento","liblib","niyugyog","luma at umuugoy","kani-kaniyang","umiwas-iwas","bumagsak sa upuan","napakahalaga","alagang hayop","magpatala","pang-agrikultura","kawan","manok at ibon","rantso","kinikilala","beterinaryo","mahigpit","unawain","galit na galit","kupas","gula-gulanit","gilid ng daan","natuyot","namuti","parang libingan","minana sa angkan","sukat ng tula","pagtawid ng linya","pantig","may diin","malalim mag-isip","umayon sa sukat","lubak","ekspres","reserbasyon","maaasahan","suburbano","paglipat ng sasakyan","namumuo ang luha","nagulat","pag-unlad","malawak na pamilya","nakaipon nang mahirap","tagapagpanday ng bakal sa kabayo","magaspang na tagapag-amo","kagamitan sa kabayo","walang sanay","araro","gayak ng kabayo","panday","espesyalisado","disiplinado","pinakakaunti","magaan na karwahe sa karera","madaling matakot","hinete","pagsasanay bilang aprentis","payat pero malakas","barkong de-usok","katalogo","panahon","tanggap na ang kalagayan","katatagan","paglayo ng damdamin","pangunahing pagkain","abono mula sa nabubulok","hindi regular","pinahihinga ang lupa","pinalit-palit","munggo at gisantes","nitroheno","dumi ng hayop","iisang pananim lamang","pataba","peste","kalagayan ng lupa","pagpasok ng hangin","laganap","lawak ng lupa","napapanatili","maibebenta","muling pagsibol","paninda","paggawa at pagbuo","mga bahagi","pagdadalisay","mag-ipon nang malaki","itinatapon pagkagamit","pagbabantay","daanan ng tubig","buong pagtutuos","lohistika","maingat at may pag-iisip","pang-kalikasan","paglipat ng hayop","hindi maiiwasan","mag-imbento ng bago","batas","bukas na talakayan","ipinagbabawal","nandidiskrimina","pilosopikal","sekondarya","labas ng oras ng klase","kurikulum","pambatasan","binigyang-kahulugan","napukaw","mga obligasyon","bakuran ng paaralan","kakayahang humatol","opisyal na suportahan","nakakasama ng loob","kontrobersyal","malabo","layunin","pagtataguyod","kumakampi sa isang panig","teolohikal","ideolohikal","pedagohikal","basta ipagpalagay","katawa-tawa","isinangguni","maihahambing"];
+
+var TR_pl = ["maleńki","wdrapał się","stała trasa","nieutwardzony","odosobniony","podrzucało","rozklekotany","odpowiedni dla każdego","przecisnęła się","opadła ciężko","kluczowy","inwentarz żywy","zapisywanie się","rolniczy","stado","drób","ranczo","akredytowany","weterynarz","ostry","rozumieć","wściekły","bezbarwny","poszarpany","pobocze","wyschnięty","wybielony","grobowy","dziedziczny","metrum","przerzutnia","sylaby","akcentowany","zamyślony","zgadzał się z metrum","dziury w drodze","ekspresowy","rezerwat","niezawodny","podmiejski","przesiadka","zaszklone łzami","przestraszony","postęp","rodzina wielopokoleniowa","ciułał z trudem","podkuwacz koni","brutalny ujeżdżacz","uprząż i sprzęt","nieujeżdżony","pług","uprząż","kowal","wyspecjalizowany","zdyscyplinowany","minimalny","sulki wyścigowe","płochliwy","dżokeje","terminowanie u mistrza","żylasty","parowce","katalog","epoka","pogodzony z losem","wytrwałość","obojętność","podstawowe produkty","kompost","nieregularny","ugorowany","zmieniany w cyklu","rośliny strączkowe","azot","obornik","monokultura","nawozy sztuczne","szkodnik","kondycja gleby","napowietrzanie","rozpowszechnienie","areał","zrównoważony","zbywalny","odrodzenie","towary","wytwarzanie","podzespoły","rafinacja","gromadzić","jednorazowy","pilnowanie","drogi wodne","pełne rozliczenie","logistyka","roztropny","ekologiczny","migracja","nieunikniony","wprowadzać nowe","ustawa","otwarte forum","zabronione","dyskryminowanie","filozoficzny","ponadpodstawowy","poza zajęciami","program nauczania","ustawodawczy","zinterpretowany","uruchomiony","zobowiązania","teren szkoły","kompetencja","oficjalnie wspierać","niesmaczny","kontrowersyjny","niejednoznaczny","zamiar","orędownictwo","stronniczy","teologiczny","ideologiczny","pedagogiczny","zakładać bez dowodu","absurdalny","powołał się na","porównywalny"];
+
+var TR_uk = ["крихітний","незграбно заліз","постійний маршрут","без покриття","віддалений","трясло","розхитаний","відповідний кожному","протиснулася","важко опустилася","вирішальний","худоба","записуватися","сільськогосподарський","зграя","свійська птиця","ранчо","акредитований","ветеринар","жорсткий","розуміти","розлючений","тьмяний","подертий","узбіччя","висохлий","вибілений","могильний","успадкований","віршовий розмір","перенос рядка","склади","наголошений","замислений","відповідав розміру","вибоїни","експрес","резервація","надійний","приміський","пересадка","зі сльозами","наляканий","поступ","велика родина","важко збирав","коваль-підковувач","грубий об'їждчик","кінська збруя","невиїжджений","плуг","упряж","коваль","спеціалізований","суворий","мінімальний","бігова качалка","полохливий","жокеї","учнівство в майстра","жилавий","пароплави","каталог","епоха","змирений","наполегливість","відстороненість","основні продукти","компост","нерегулярний","під паром","чергувався","бобові","азот","гній","монокультура","добрива","шкідник","стан ґрунту","аерація","поширеність","площа землі","сталий","придатний для продажу","відродження","товари","виготовлення","складники","очищення","накопичувати","одноразовий","охорона","водні шляхи","повний підрахунок","логістика","розважливий","екологічний","міграція","неминучий","впроваджувати нове","закон","відкритий форум","заборонено","дискримінація","філософський","середньої школи","поза навчальним часом","навчальна програма","законодавчий","витлумачений","запускається","зобов'язання","територія школи","компетенція","офіційно підтримувати","неприємний","суперечливий","двозначний","намір","обстоювання","упереджений","богословський","ідеологічний","педагогічний","припускати без доказів","абсурдний","послався на","порівнянний"];
+/* ============================================================
+   CULTURAL BACKGROUND NOTES
+   Things a student can know every word of and still misread.
+   Neutral context, never a hint at an answer. Practice mode only.
+   k = the phrase that triggers the marker, p = passage id
+   ============================================================ */
+var NOTES = [
+{k:"4-H",p:"country",t:"4-H is a nationwide youth program in the United States, strongest in farming communities. Students raise an animal or run a project for a year and show it at a county fair. Colleges with agriculture programs treat 4-H experience as evidence of real skill, which is why Sue's lamb matters so much to her future."},
+{k:"BFF",p:"country",t:"BFF stands for “best friends forever.” It is casual teenage slang, not formal English."},
+{k:"shrunk it in the wash",p:"country",t:"Clothes sometimes get smaller when washed in hot water. Saying something looks “shrunk in the wash” is a joking way to say it is much too small. Nobody actually washed the bus."},
+{k:"milking barn",p:"country",t:"A building where dairy cows are milked. A loose lamb running through it would disturb the cows and the equipment — which is why Sue's father was furious."},
+{k:"county supervisor",p:"country",t:"A local government official. In rural US counties, this person controls budgets for things like school buses. The joke is that a cheap official bought a comically small bus."},
+{k:"tumbler padlock",p:"country",t:"A lock opened by spinning a dial to a secret number combination, like the lockers in an American school hallway."},
+{k:"state college",p:"country",t:"A public university funded by the state. Tuition is lower for students who live in that state, so it is often the affordable choice for a local family."},
+{k:"Cornell",p:"country",t:"Cornell University, an elite US university with one of the most competitive veterinary programs in the country. Naming it signals how ambitious Sue is."},
+{k:"The Star-Spangled Banner",p:"country",t:"The national anthem of the United States. Sue uses its opening lines as an example everyone in her class would already know by heart."},
+{k:"iambic pentameter",p:"country",t:"A poetry rhythm of ten syllables per line, alternating unstressed and stressed — da-DUM da-DUM da-DUM da-DUM da-DUM. Shakespeare wrote in it, which is why the example is from Hamlet."},
+{k:"Elizabethan",p:"country",t:"From the reign of Queen Elizabeth I of England (1558–1603), the era of Shakespeare. Calling someone an “Elizabethan poet” means they are thinking like a writer of that period."},
+{k:"Wind River Reservation",p:"suburban",t:"A large Native American reservation in Wyoming, home to the Eastern Shoshone and Northern Arapaho nations. It is rural and far from cities, which is the contrast the whole story is built on."},
+{k:"Tri-Cities",p:"suburban",t:"A common US name for a cluster of three neighboring cities that share services like bus systems."},
+{k:"student pass",p:"suburban",t:"A discounted or free transit card for students. For John it removes the cost barrier to going anywhere in the city."},
+{k:"trig",p:"suburban",t:"Short for trigonometry, a high school math course. Precalculus and Advanced Placement (AP) courses come after it — AP classes can earn college credit while still in high school."},
+{k:"Grandmother Raven",p:"suburban",t:"Sammy's grandmother. Sending love to elders by name is a warm, ordinary courtesy in many families and signals how close John was to Sammy's household."},
+{k:"farrier",p:"welsh",t:"A skilled worker who makes and fits horseshoes and metal riding equipment. Before cars, farriers traveled between farms and were essential to daily life."},
+{k:"horse breaker",p:"welsh",t:"Someone who trains a wild or young horse to accept work, quickly and by force. A “trainer” does the same job slowly and gently — that difference is the heart of this story."},
+{k:"plough horses",p:"welsh",t:"Very large, heavy horses bred to pull farm equipment through hard soil. They needed bigger, stronger shoes than riding horses."},
+{k:"sulky-racing",p:"welsh",t:"A form of horse racing where the horse pulls a light two-wheeled cart with a driver, instead of carrying a rider on its back."},
+{k:"Sears catalog",p:"welsh",t:"A famous mail-order book sold across America from the 1890s onward. Families ordered goods by mail that they once bought from local craftsmen — which is exactly why blacksmiths lost their work."},
+{k:"Ford Model A",p:"welsh",t:"An early mass-produced automobile. Seeing one replaces the image of a horse on the road, marking the change Bert predicted."},
+{k:"Lackawanna County",p:"welsh",t:"A county in northeastern Pennsylvania, known for coal mining and farming. Many Welsh immigrant families settled there for exactly those jobs."},
+{k:"Granda",p:"welsh",t:"An affectionate word for grandfather, common in Welsh and Irish families."},
+{k:"Polyface Farm",p:"crop",t:"A real, well-known US farm in Virginia that rotates animals and crops across the same fields instead of using chemicals. It is cited as proof the old method still works today."},
+{k:"Middle Ages",p:"crop",t:"The period of European history roughly from the 5th to the 15th century. The two-field and three-field systems described here were medieval European farming practices."},
+{k:"Victorian era",p:"crop",t:"The reign of Queen Victoria of Britain (1837–1901). The passage treats it as the high point of skillful mixed farming, just before industrial methods took over."},
+{k:"truck farms",p:"crop",t:"Small farms that grow vegetables and fruit to sell at nearby markets. Nothing to do with trucks as vehicles."},
+{k:"Equal Access Act",p:"majority",t:"A US federal law passed in 1984. It says a public high school that lets any student club meet outside class time cannot refuse another club because of what that club believes or talks about."},
+{k:"Supreme Court",p:"majority",t:"The highest court in the United States. When it interprets a law, that interpretation binds every school in the country. A “majority opinion” is the ruling; a “dissenting opinion” is written by a judge who disagreed."},
+{k:"limited open forum",p:"majority",t:"A legal term, not everyday English. A school creates one the moment it allows even one club that is not tied to a course. Once that happens, the law's rules switch on."},
+{k:"chess club",p:"majority",t:"US high schools commonly host voluntary clubs that meet before or after class — chess, scuba diving, stamp collecting. They are not graded courses, which is precisely what makes them legally significant here."},
+{k:"student government",p:"majority",t:"An elected group of students who represent classmates to the school administration."},
+{k:"Widmar",p:"dissent",t:"Widmar v. Vincent, an earlier Supreme Court case about religious student groups at a public university. The argument here is whether a rule written for adult university students should apply the same way to teenagers."},
+{k:"grilled cheese sandwich",p:"dissent",t:"A plain, everyday American sandwich of melted cheese between toasted bread. It is used here as a byword for something completely ordinary and impossible to argue about."},
+{k:"Sub-surfers",p:"dissent",t:"The name of a scuba diving club at Westside High School. The justice picks deliberately harmless-sounding clubs to make his point."}
+];
+/* Languages offered, alphabetical by English name.
+   TO ADD A LANGUAGE: add a row here and a matching TR_xx array above
+   with exactly one entry per word in WORDS, in the same order. */
+var LANGS = [
+ {c:"ar", n:"Arabic",              nn:"العربية",      t:null, rtl:1},
+ {c:"zh", n:"Chinese (Simplified)",nn:"简体中文",      t:null},
+ {c:"fr", n:"French",              nn:"Français",     t:null, rom:1},
+ {c:"ht", n:"Haitian Creole",      nn:"Kreyòl Ayisyen",t:null, rom:1},
+ {c:"ko", n:"Korean",              nn:"한국어",        t:null},
+ {c:"pl", n:"Polish",              nn:"Polski",       t:null},
+ {c:"pt", n:"Portuguese",          nn:"Português",    t:null, rom:1},
+ {c:"ru", n:"Russian",             nn:"Русский",      t:null},
+ {c:"es", n:"Spanish",             nn:"Español",      t:null, rom:1},
+ {c:"tl", n:"Tagalog",             nn:"Tagalog",      t:null},
+ {c:"uk", n:"Ukrainian",           nn:"Українська",   t:null},
+ {c:"vi", n:"Vietnamese",          nn:"Tiếng Việt",   t:null}
+];
+LANGS.forEach(function(L){
+  try{ L.t = eval("TR_"+L.c); }catch(e){ L.t = null; }
+});
+LANGS = LANGS.filter(function(L){ return L.t && L.t.length===WORDS.length; });
+</script>
+<script>
+/* ============================================================
+   SIMULATOR LOGIC
+   ============================================================ */
+(function(){
+"use strict";
+var $=function(s){return document.querySelector(s)};
+var $$=function(s){return Array.prototype.slice.call(document.querySelectorAll(s))};
+var LETTERS="ABCDE";
+var ITEMS = QUESTIONS;
+
+var S={
+  mode:"practice", i:0, ans:{}, flags:{}, checked:{},
+  started:0, elapsed:0, limit:0, tick:null, submitted:false,
+  showTimer:true, hlOn:false, eraseOn:false, allowHL:true,
+  curPass:null, words:{}, dragging:false, dragFrom:null, filtered:false
+};
+
+function passById(id){for(var i=0;i<PASSAGES.length;i++){if(PASSAGES[i].id===id)return PASSAGES[i];}return null;}
+function toast(msg){var t=$("#toast");t.textContent=msg;t.classList.add("show");
+  clearTimeout(toast._t);toast._t=setTimeout(function(){t.classList.remove("show")},2200);}
+function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+
+/* ---------- START SCREEN ---------- */
+(function initStart(){
+  var ul=$("#passList");
+  PASSAGES.forEach(function(p){
+    var qs=QUESTIONS.filter(function(q){return q.pass===p.id;}).length;
+    var li=document.createElement("li");
+    li.innerHTML='<span class="g">'+esc(p.genre)+'</span><span><b>'+esc(p.title)+'</b> &mdash; '+esc(p.blurb)+' <i style="color:var(--muted)">('+qs+' questions)</i></span>';
+    ul.appendChild(li);
+  });
+  var sel=$("#optLang");
+  LANGS.forEach(function(L){
+    var o=document.createElement("option");
+    o.value=L.c; o.textContent=L.n+" — "+L.nn;
+    sel.appendChild(o);
+  });
+  $$(".modecard").forEach(function(b){
+    b.addEventListener("click",function(){
+      $$(".modecard").forEach(function(x){x.classList.remove("sel")});
+      b.classList.add("sel"); S.mode=b.getAttribute("data-mode");
+      benchPickerEnabled(S.mode==="practice");
+    });
+  });
+  $("#btnBegin").addEventListener("click",begin);
+})();
+
+function begin(){
+  if(S.mode==="practice"){
+    var sel=selectedCodes();
+    if(!sel.length){ window.alert("Select at least one benchmark before you begin."); return; }
+    ITEMS = QUESTIONS.filter(function(q){ return sel.indexOf(q.std)>=0; });
+  } else {
+    ITEMS = QUESTIONS;
+  }
+  S.filtered = ITEMS.length !== QUESTIONS.length;
+  var lc=$("#optLang").value;
+  SUP.lang = lc ? (LANGS.filter(function(L){return L.c===lc})[0]||null) : null;
+  SUP.notes = $("#optNotes").checked;
+  SUP.cognate = $("#optCognate").checked;
+  SUP.cognateSeen = false;
+  S.showTimer=$("#optTimer").checked;
+  S.allowHL=$("#optHighlight").checked;
+  S.limit=$("#optCountdown").checked? parseInt($("#optMinutes").value,10)*60 : 0;
+  S.started=Date.now(); S.elapsed=0; S.submitted=false;
+  $("#start").style.display="none";
+  $("#testScreen").style.display="";
+  $("#modePill").hidden=false;
+  $("#modePill").textContent = S.mode==="practice"? "Practice Mode" : "Test Mode";
+  $("#countPill").hidden=false;
+  $("#btnSubmit").hidden=false; $("#btnRestart").hidden=false; $("#btnNavToggle").hidden=false;
+  $("#viewCtl").hidden=false;
+  applySplit();
+  if(S.filtered){
+    var chip=document.createElement("span");
+    chip.className="pill"; chip.id="filterPill";
+    chip.textContent=ITEMS.length+" / "+QUESTIONS.length+" items";
+    chip.title="Benchmark drill: "+selectedCodes().sort().join(", ");
+    $("#modePill").insertAdjacentElement("afterend",chip);
+  }
+  $("#timerPill").hidden=!(S.showTimer||S.limit);
+  if(!S.allowHL){$("#btnHL").style.display="none";$("#btnErase").style.display="none";$("#btnClearHL").style.display="none";}
+  if(S.limit||S.showTimer){ tickTimer(); S.tick=setInterval(tickTimer,1000); }
+  buildNav(); go(0);
+  window.scrollTo(0,0);
+}
+
+function tickTimer(){
+  S.elapsed=Math.floor((Date.now()-S.started)/1000);
+  var show=S.limit? Math.max(0,S.limit-S.elapsed) : S.elapsed;
+  var m=Math.floor(show/60), s=show%60;
+  $("#timerText").textContent=(m<10?"0":"")+m+":"+(s<10?"0":"")+s;
+  if(S.limit && show<=0){ clearInterval(S.tick); toast("Time is up — submitting."); submit(); }
+}
+
+/* ---------- PASSAGE RENDERING ---------- */
+function wordize(text,pnum){
+  var parts=text.split(/(\s+)/), out="";
+  for(var i=0;i<parts.length;i++){
+    if(/^\s+$/.test(parts[i])) continue;
+    if(!parts[i].length) continue;
+    var gap=(i+1<parts.length && /^\s+$/.test(parts[i+1]))? parts[i+1] : "";
+    out+='<w data-p="'+pnum+'">'+esc(parts[i])+esc(gap)+'</w>';
+  }
+  return out;
+}
+function renderPassage(pid){
+  var P=passById(pid); if(!P) return;
+  S.curPass=pid;
+  var head=$("#passTitle");
+  head.textContent=P.title;
+  var html="", num=0;
+  if(P.intro) html+='<div class="introbox"><b>Introduction</b>'+esc(P.intro)+'</div>';
+  P.p.forEach(function(blk,bi){
+    if(typeof blk==="string"){ num++;
+      html+='<div class="para" id="p'+num+'"><div class="num">'+num+'</div><div class="txt">'+wordize(blk,num)+'</div></div>';
+    } else if(blk.kind==="scan"){ num++;
+      html+='<div class="para" id="p'+num+'"><div class="num">'+num+'</div><div class="txt scan" style="margin-left:0">'+wordize(blk.t,num)+'</div></div>';
+    } else if(blk.kind==="quote"){
+      html+='<div class="blockquote" id="bq'+bi+'">'+wordize(blk.t,"q"+bi)+'</div>';
+    }
+  });
+  $("#passageText").innerHTML=html;
+  indexWords();
+  applySupports();
+  hidePop();
+}
+function indexWords(){
+  S.words={};
+  $$("#passageText w").forEach(function(w){
+    var p=w.getAttribute("data-p");
+    (S.words[p]=S.words[p]||[]).push(w);
+  });
+}
+
+/* ---------- HIGHLIGHTER ---------- */
+function setTool(which){
+  S.hlOn = which==="hl"; S.eraseOn = which==="erase";
+  $("#btnHL").classList.toggle("on",S.hlOn);
+  $("#btnErase").classList.toggle("on",S.eraseOn);
+  $("#passageText").classList.toggle("erasing",S.eraseOn);
+}
+$("#btnHL").addEventListener("click",function(){ setTool(S.hlOn?null:"hl"); });
+$("#btnErase").addEventListener("click",function(){ setTool(S.eraseOn?null:"erase"); });
+$("#btnClearHL").addEventListener("click",function(){
+  $$("#passageText w").forEach(function(w){w.classList.remove("hl");w.classList.remove("ev");});
+  toast("Highlights cleared.");
+});
+
+var pt=$("#passageText");
+pt.addEventListener("pointerdown",function(e){
+  if(!S.allowHL||(!S.hlOn&&!S.eraseOn))return;
+  var w=e.target.closest?e.target.closest("w"):null; if(!w)return;
+  e.preventDefault(); S.dragging=true; S.dragFrom=w; paintRange(w,w);
+});
+pt.addEventListener("pointerover",function(e){
+  if(!S.dragging)return;
+  var w=e.target.closest?e.target.closest("w"):null; if(!w)return;
+  clearSel(); paintRange(S.dragFrom,w);
+});
+document.addEventListener("pointerup",function(){
+  if(!S.dragging)return; S.dragging=false;
+  $$("#passageText w.sel").forEach(function(w){
+    w.classList.remove("sel");
+    if(S.eraseOn){ w.classList.remove("hl"); w.classList.remove("ev"); }
+    else w.classList.add("hl");
+  });
+  S.dragFrom=null;
+});
+function clearSel(){ $$("#passageText w.sel").forEach(function(w){w.classList.remove("sel")}); }
+function paintRange(a,b){
+  var all=$$("#passageText w");
+  var ia=all.indexOf(a), ib=all.indexOf(b);
+  if(ia<0||ib<0)return;
+  if(ia>ib){var t=ia;ia=ib;ib=t;}
+  for(var i=ia;i<=ib;i++) all[i].classList.add("sel");
+}
+
+/* ---------- EVIDENCE ---------- */
+function norm(s){return s.replace(/[‘’]/g,"'").replace(/[“”]/g,'"').replace(/[—–]/g,"-").replace(/\s+/g," ").trim().toLowerCase();}
+function showEvidence(q){
+  $$("#passageText w.ev").forEach(function(w){w.classList.remove("ev")});
+  if(!q.ev||!q.ev.length){toast("No passage evidence anchor for this item.");return;}
+  var first=null, hits=0;
+  q.ev.forEach(function(e){
+    var ws=S.words[String(e.p)]; if(!ws)return;
+    var joined=[], offs=[], pos=0;
+    ws.forEach(function(w){ var t=norm(w.textContent); offs.push(pos); joined.push(t); pos+=t.length+1; });
+    var hay=joined.join(" "), needle=norm(e.t);
+    var at=hay.indexOf(needle);
+    if(at<0){ // fallback: match on first 6 words
+      var nw=needle.split(" ").slice(0,6).join(" "); at=hay.indexOf(nw);
+      if(at>=0) needle=nw;
+    }
+    if(at<0)return;
+    var end=at+needle.length, si=-1, ei=-1;
+    for(var i=0;i<ws.length;i++){
+      var st=offs[i], en=offs[i]+joined[i].length;
+      if(si<0 && en>at) si=i;
+      if(st<end) ei=i;
+    }
+    if(si<0)return;
+    for(var k=si;k<=ei;k++){ ws[k].classList.add("ev"); }
+    hits++; if(!first) first=ws[si];
+  });
+  if(first){ first.scrollIntoView({behavior:"smooth",block:"center"}); }
+  toast(hits? "Evidence highlighted in green." : "Could not locate that line.");
+}
+
+/* ---------- QUESTION RENDERING ---------- */
+function go(i){
+  if(i<0||i>=ITEMS.length)return;
+  S.i=i; var q=ITEMS[i];
+  if(S.curPass!==q.pass) renderPassage(q.pass);
+  renderPassSwitch(q);
+  supportChips();
+  renderQuestion(q);
+  updateNav(); updateCount();
+  $("#questionPane .panel-body").scrollTop=0;
+}
+function supportChips(){
+  var head=$("#passagePane .panel-head");
+  var old=head.querySelector(".supportbar"); if(old) old.remove();
+  var bits=[];
+  if(SUP.lang) bits.push(esc(SUP.lang.nn));
+  if(SUP.notes && S.mode==="practice") bits.push("notes");
+  if(!bits.length) return;
+  var d=document.createElement("span");
+  d.className="supportbar";
+  d.innerHTML=bits.map(function(b){return '<span class="chip">'+b+'</span>'}).join("");
+  var anchor2=head.querySelector(":scope > .tool");
+  if(anchor2) head.insertBefore(d,anchor2); else head.appendChild(d);
+}
+function renderPassSwitch(q){
+  var head=$("#passagePane .panel-head");
+  var old=head.querySelector(".passSwitch"); if(old) old.remove();
+  if(!q.both)return;
+  var d=document.createElement("span"); d.className="passSwitch";
+  d.style.cssText="display:inline-flex;gap:6px";
+  d.innerHTML='<button class="tool" data-p="majority">Majority</button><button class="tool" data-p="dissent">Dissent</button>';
+  head.insertBefore(d,head.querySelector(":scope > .tool"));
+  d.querySelectorAll("button").forEach(function(b){
+    if(b.getAttribute("data-p")===S.curPass) b.classList.add("on");
+    b.addEventListener("click",function(){
+      renderPassage(b.getAttribute("data-p"));
+      renderPassSwitch(q);
+    });
+  });
+}
+function renderQuestion(q){
+  $("#qHeader").textContent="Question "+q.n+(q.part?" — "+q.part:"");
+  $("#qTags").innerHTML='<span class="tag">'+esc(q.std)+'</span><span class="tag alt">'+esc(q.focus)+'</span>'+
+    (q.pick>1?'<span class="tag" style="background:#fff3d6;color:#7a5200">Select '+q.pick+'</span>':'');
+  var h="";
+  if(q.pairNote) h+='<div class="hint">'+esc(q.pairNote)+'</div>';
+  if(q.part) h+='<div class="qpart">'+esc(q.part)+'</div>';
+  if(q.excerpt) h+='<div class="excerpt">'+esc(q.excerpt)+'</div>';
+  h+='<div class="qstem">'+q.stem+'</div>';
+  h+='<div class="opts" id="optWrap"></div>';
+  $("#qBody").innerHTML=h;
+
+  var wrap=$("#optWrap"), picked=S.ans[q.n]||[];
+  q.opts.forEach(function(o,oi){
+    var b=document.createElement("button");
+    b.className="opt"+(q.pick>1?" multi":"")+(picked.indexOf(oi)>=0?" picked":"");
+    b.innerHTML='<span class="ltr">'+LETTERS[oi]+'</span><span class="otext">'+o+'</span>';
+    b.addEventListener("click",function(){ pick(q,oi); });
+    wrap.appendChild(b);
+  });
+
+  $("#btnFlag").classList.toggle("flagged",!!S.flags[q.n]);
+  $("#btnFlag").innerHTML=(S.flags[q.n]?"&#9873; Flagged":"&#9873; Flag");
+  $("#btnPrev").disabled=(S.i===0);
+  $("#btnNext").textContent=(S.i===ITEMS.length-1)?"Finish →":"Next →";
+  $("#btnCheck").style.display=(S.mode==="practice" && !S.checked[q.n])?"":"none";
+  $("#btnCheck").disabled=!(S.ans[q.n]&&S.ans[q.n].length===q.pick);
+  $("#btnEvidence").hidden=!(S.mode==="practice" && S.checked[q.n]);
+  $("#qFeedback").innerHTML="";
+  if(S.mode==="practice" && S.checked[q.n]) paintChecked(q);
+}
+function pick(q,oi){
+  if(S.checked[q.n])return;
+  var cur=(S.ans[q.n]||[]).slice();
+  if(q.pick===1) cur=[oi];
+  else{
+    var at=cur.indexOf(oi);
+    if(at>=0) cur.splice(at,1);
+    else { if(cur.length>=q.pick) cur.shift(); cur.push(oi); }
+  }
+  S.ans[q.n]=cur;
+  $$("#optWrap .opt").forEach(function(b,bi){ b.classList.toggle("picked",cur.indexOf(bi)>=0); });
+  $("#btnCheck").disabled=!(cur.length===q.pick);
+  updateNav(); updateCount();
+}
+function isRight(q){
+  var a=(S.ans[q.n]||[]).slice().sort().join(",");
+  return a===q.ans.slice().sort().join(",") && a!=="";
+}
+function paintChecked(q){
+  var right=isRight(q), picked=S.ans[q.n]||[];
+  $$("#optWrap .opt").forEach(function(b,bi){
+    b.disabled=true; b.classList.remove("picked");
+    if(q.ans.indexOf(bi)>=0) b.classList.add("correct");
+    else if(picked.indexOf(bi)>=0) b.classList.add("wrong");
+  });
+  var trapHTML="";
+  picked.forEach(function(p){
+    if(q.ans.indexOf(p)<0 && q.traps && q.traps[p])
+      trapHTML+='<div><b>Why '+LETTERS[p]+' is a trap:</b> '+q.traps[p]+'</div>';
+  });
+  var ansLtrs=q.ans.map(function(x){return LETTERS[x]}).join(" and ");
+  $("#qFeedback").innerHTML=
+    '<div class="feedback '+(right?"ok":"no")+'">'+
+      '<div class="fhead">'+(right?"&#10004; Correct":"&#10007; Not quite")+
+        ' <span style="font-weight:400;color:var(--muted)">&middot; answer: '+ansLtrs+'</span></div>'+
+      '<div>'+q.why+'</div>'+
+      (trapHTML?'<div class="trap">'+trapHTML+'</div>':'')+
+    '</div>';
+  $("#btnCheck").style.display="none";
+  $("#btnEvidence").hidden=false;
+}
+$("#btnCheck").addEventListener("click",function(){
+  var q=ITEMS[S.i];
+  if(!(S.ans[q.n]&&S.ans[q.n].length===q.pick))return;
+  S.checked[q.n]=true; paintChecked(q); updateNav();
+});
+$("#btnEvidence").addEventListener("click",function(){ showEvidence(ITEMS[S.i]); });
+$("#btnPrev").addEventListener("click",function(){ go(S.i-1); });
+$("#btnNext").addEventListener("click",function(){
+  if(S.i===ITEMS.length-1) confirmSubmit(); else go(S.i+1);
+});
+$("#btnFlag").addEventListener("click",function(){
+  var q=ITEMS[S.i]; S.flags[q.n]=!S.flags[q.n];
+  $("#btnFlag").classList.toggle("flagged",!!S.flags[q.n]);
+  $("#btnFlag").innerHTML=(S.flags[q.n]?"&#9873; Flagged":"&#9873; Flag");
+  updateNav();
+});
+
+/* ---------- NAVIGATOR ---------- */
+function buildNav(){
+  var g=$("#navGrid"); g.innerHTML="";
+  ITEMS.forEach(function(q,i){
+    var b=document.createElement("button");
+    b.className="nbtn"; b.textContent=q.n; b.title=q.std+" · "+q.focus;
+    b.addEventListener("click",function(){ go(i); });
+    g.appendChild(b);
+  });
+}
+function updateNav(){
+  $$("#navGrid .nbtn").forEach(function(b,i){
+    var q=ITEMS[i];
+    b.className="nbtn";
+    if(S.ans[q.n]&&S.ans[q.n].length) b.classList.add("answered");
+    if((S.mode==="practice"&&S.checked[q.n])||S.submitted){
+      b.classList.remove("answered");
+      if(S.ans[q.n]&&S.ans[q.n].length) b.classList.add(isRight(q)?"right":"wrongm");
+    }
+    if(S.flags[q.n]) b.classList.add("flag");
+    if(i===S.i) b.classList.add("current");
+  });
+}
+function updateCount(){
+  var done=ITEMS.filter(function(q){return S.ans[q.n]&&S.ans[q.n].length===q.pick;}).length;
+  $("#countText").textContent=done+" / "+ITEMS.length;
+  $("#progbar").style.width=(done/ITEMS.length*100)+"%";
+}
+$("#btnNavToggle").addEventListener("click",function(){
+  var n=$("#nav"); n.style.display=(n.style.display==="none")?"":"none";
+});
+
+/* ---------- SUBMIT + RESULTS ---------- */
+$("#btnSubmit").addEventListener("click",confirmSubmit);
+function confirmSubmit(){
+  var done=ITEMS.filter(function(q){return S.ans[q.n]&&S.ans[q.n].length===q.pick;}).length;
+  var missing=ITEMS.length-done;
+  if(missing>0 && !window.confirm(missing+" question part"+(missing===1?" is":"s are")+" still unanswered. Submit anyway?")) return;
+  submit();
+}
+function submit(){
+  S.submitted=true;
+  if(S.tick) clearInterval(S.tick);
+  S.elapsed=Math.floor((Date.now()-S.started)/1000);
+  buildResults();
+  $("#testScreen").style.display="none";
+  $("#results").style.display="block";
+  $("#btnSubmit").hidden=true;
+  window.scrollTo(0,0);
+}
+function lvl(pct){ return pct>=80?["s","Strong"]:pct>=50?["d","Developing"]:["f","Focus"]; }
+function meterColor(pct){ return pct>=80?"var(--good)":pct>=50?"#d9a400":"var(--bad)"; }
+
+function buildResults(){
+  var total=ITEMS.length;
+  var correct=ITEMS.filter(isRight).length;
+  var answered=ITEMS.filter(function(q){return S.ans[q.n]&&S.ans[q.n].length;}).length;
+  var pct=Math.round(correct/total*100);
+
+  var mm=Math.floor(S.elapsed/60), ss=S.elapsed%60;
+  var d=new Date();
+  $("#resultMeta").textContent=
+    (S.mode==="practice"?"Practice Mode":"Test Mode")+
+    (S.filtered?" · benchmark drill ("+selectedCodes().sort().join(", ")+")":"")+" · "+
+    d.toLocaleDateString()+" "+d.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})+
+    " · time used "+mm+"m "+(ss<10?"0":"")+ss+"s";
+
+  $("#scorePct").textContent=pct+"%";
+  $("#scoreRaw").textContent=correct+" of "+total;
+  var arc=$("#ringArc"), C=2*Math.PI*56;
+  arc.setAttribute("stroke-dasharray",C.toFixed(2));
+  arc.setAttribute("stroke-dashoffset",(C*(1-pct/100)).toFixed(2));
+  arc.setAttribute("stroke",meterColor(pct));
+
+  var blurb = pct>=80 ? "Strong performance. You are reading closely and using evidence well — keep sharpening the benchmarks marked Developing."
+    : pct>=50 ? "Solid foundation with clear gaps. Use the benchmark table below to pick your next two practice targets."
+    : "This is a starting point, not a verdict. Work the review section below one question at a time — read the explanation, then find the evidence in the passage.";
+  $("#scoreBlurb").textContent=blurb;
+
+  var flagged=Object.keys(S.flags).filter(function(k){return S.flags[k]}).length;
+  $("#statGrid").innerHTML=
+    stat(correct,"correct")+stat(answered-correct,"incorrect")+
+    stat(total-answered,"unanswered")+stat(flagged,"flagged");
+
+  /* benchmark dashboard */
+  var byStd={};
+  ITEMS.forEach(function(q){
+    var b=byStd[q.std]=byStd[q.std]||{n:0,c:0,focus:q.focus};
+    b.n++; if(isRight(q)) b.c++;
+  });
+  var keys=Object.keys(byStd).sort();
+  $("#dashBody").innerHTML=keys.map(function(k){
+    var b=byStd[k], p=Math.round(b.c/b.n*100), L=lvl(p);
+    return '<tr><td><b>'+k+'</b></td><td>'+esc(b.focus)+'</td><td>'+b.c+'/'+b.n+'</td>'+
+      '<td><div class="meter"><i style="width:'+p+'%;background:'+meterColor(p)+'"></i></div></td>'+
+      '<td><span class="lvl '+L[0]+'">'+L[1]+'</span></td></tr>';
+  }).join("");
+
+  /* passage table */
+  var byPass={};
+  ITEMS.forEach(function(q){
+    var b=byPass[q.pass]=byPass[q.pass]||{n:0,c:0};
+    b.n++; if(isRight(q)) b.c++;
+  });
+  $("#passBody").innerHTML=PASSAGES.filter(function(p){return byPass[p.id]}).map(function(p){
+    var b=byPass[p.id], pc=Math.round(b.c/b.n*100);
+    return '<tr><td>'+esc(p.title)+'</td><td>'+(p.type==="lit"?"Literary":"Informational")+'</td>'+
+      '<td>'+b.c+'/'+b.n+'</td><td><div class="meter"><i style="width:'+pc+'%;background:'+meterColor(pc)+'"></i></div></td></tr>';
+  }).join("");
+
+  /* review */
+  $("#reviewList").innerHTML=ITEMS.map(function(q){
+    var picked=S.ans[q.n]||[], right=isRight(q);
+    var cls=!picked.length?"u":right?"r":"w";
+    var yours=picked.length?picked.slice().sort().map(function(x){return LETTERS[x]}).join(", "):"—";
+    var key=q.ans.slice().sort().map(function(x){return LETTERS[x]}).join(", ");
+    var traps="";
+    picked.forEach(function(p){ if(q.ans.indexOf(p)<0&&q.traps&&q.traps[p])
+      traps+='<div style="margin-top:6px"><b>Why '+LETTERS[p]+' is a trap:</b> '+q.traps[p]+'</div>'; });
+    return '<div class="review-item '+cls+'">'+
+      '<div class="review-head"><span class="qn">Question '+q.n+'</span>'+
+        '<span class="tag">'+esc(q.std)+'</span><span class="tag alt">'+esc(q.focus)+'</span>'+
+        '<span style="margin-left:auto;font-weight:700;color:'+(right?"var(--good)":picked.length?"var(--bad)":"var(--muted)")+'">'+
+          (right?"Correct":picked.length?"Incorrect":"Not answered")+'</span></div>'+
+      '<div style="font-size:15px;margin-bottom:6px">'+q.stem+'</div>'+
+      '<div class="ansline"><span class="lab">Your answer:</span> '+yours+'</div>'+
+      '<div class="ansline"><span class="lab">Correct answer:</span> <b>'+key+'</b> &mdash; '+q.opts[q.ans[0]].replace(/<[^>]+>/g,"")+
+        (q.ans.length>1?" / "+q.opts[q.ans[1]].replace(/<[^>]+>/g,""):"")+'</div>'+
+      '<details class="expl"'+(right?"":" open")+'><summary>Explanation</summary><div class="body">'+q.why+traps+'</div></details>'+
+      '</div>';
+  }).join("");
+
+  fillCode();
+}
+function stat(v,l){ return '<div class="stat"><b>'+v+'</b><span>'+l+'</span></div>'; }
+
+$("#btnPrint").addEventListener("click",function(){
+  var withExpl=$("#optPrintExpl").checked;
+  document.body.classList.toggle("print-expl",withExpl);
+  if(withExpl) $$("#reviewList details.expl").forEach(function(d){d.open=true;});
+  window.print();
+});
+$("#btnBackToTest").addEventListener("click",function(){
+  $("#results").style.display="none"; $("#testScreen").style.display="";
+  updateNav(); go(S.i); window.scrollTo(0,0);
+});
+$("#btnRetake").addEventListener("click",restart);
+$("#btnRestart").addEventListener("click",function(){
+  if(window.confirm("Start over? Your current answers will be cleared.")) restart();
+});
+function restart(){ if(S.tick)clearInterval(S.tick); location.reload(); }
+
+
+/* ============================================================
+   BENCHMARK FILTER  (Practice Mode only)
+   Categories follow the B.E.S.T. standards map: the Reading strand
+   holds R.1/R.2/R.3; Morphology and Context sit in the Vocabulary strand.
+   ============================================================ */
+var CATS = [
+ {id:"r1", name:"Reading Prose and Poetry",   codes:["R.1.1","R.1.2","R.1.3"]},
+ {id:"r2", name:"Reading Informational Text", codes:["R.2.1","R.2.2","R.2.3","R.2.4"]},
+ {id:"r3", name:"Reading Across Genres",      codes:["R.3.1","R.3.4"]},
+ {id:"v1", name:"Vocabulary (Finding Meaning)",codes:["V.1.2","V.1.3"]}
+];
+var BMSEL = {};   /* code -> true */
+
+function stdLabel(code){
+  var q=QUESTIONS.filter(function(x){return x.std===code})[0];
+  return q?q.focus:code;
+}
+function stdCount(code){
+  return QUESTIONS.filter(function(q){return q.std===code}).length;
+}
+function buildBenchPicker(){
+  var host=$("#bmGroups"); host.innerHTML="";
+  CATS.forEach(function(c){
+    var codes=c.codes.filter(function(k){return stdCount(k)>0});
+    if(!codes.length) return;
+    var tot=codes.reduce(function(a,k){return a+stdCount(k)},0);
+    var g=document.createElement("div"); g.className="bmgroup";
+    var h='<label class="bmghead"><input type="checkbox" class="bmcat" data-cat="'+c.id+'" checked>'+
+          '<span>'+esc(c.name)+'</span><span class="n">'+tot+' questions</span></label>';
+    codes.forEach(function(k){
+      BMSEL[k]=true;
+      h+='<label class="bmrow"><input type="checkbox" class="bmone" data-code="'+k+'" checked>'+
+         '<code>'+esc(k)+'</code><span>'+esc(stdLabel(k))+'</span>'+
+         '<span class="n">'+stdCount(k)+'</span></label>';
+    });
+    g.innerHTML=h; host.appendChild(g);
+  });
+  host.addEventListener("change",function(e){
+    var t=e.target;
+    if(t.classList.contains("bmone")){ BMSEL[t.getAttribute("data-code")]=t.checked; }
+    else if(t.classList.contains("bmcat")){
+      var c=CATS.filter(function(x){return x.id===t.getAttribute("data-cat")})[0];
+      c.codes.forEach(function(k){
+        if(!(k in BMSEL)) return;
+        BMSEL[k]=t.checked;
+        var box=host.querySelector('.bmone[data-code="'+k+'"]'); if(box) box.checked=t.checked;
+      });
+    }
+    syncBenchPicker();
+  });
+  $("#bmAll").addEventListener("change",function(){
+    var on=$("#bmAll").checked;
+    Object.keys(BMSEL).forEach(function(k){ BMSEL[k]=on; });
+    $$(".bmone").forEach(function(b){ b.checked=on; });
+    syncBenchPicker();
+  });
+  syncBenchPicker();
+}
+function selectedCodes(){ return Object.keys(BMSEL).filter(function(k){return BMSEL[k]}); }
+function syncBenchPicker(){
+  CATS.forEach(function(c){
+    var codes=c.codes.filter(function(k){return k in BMSEL});
+    if(!codes.length) return;
+    var on=codes.filter(function(k){return BMSEL[k]}).length;
+    var box=$('.bmcat[data-cat="'+c.id+'"]'); if(!box) return;
+    box.checked = on===codes.length;
+    box.indeterminate = on>0 && on<codes.length;
+  });
+  var sel=selectedCodes(), all=Object.keys(BMSEL);
+  var n=QUESTIONS.filter(function(q){return sel.indexOf(q.std)>=0}).length;
+  $("#bmAll").checked = sel.length===all.length;
+  $("#bmAll").indeterminate = sel.length>0 && sel.length<all.length;
+  $("#bmCount").textContent = n+" of "+QUESTIONS.length+" questions";
+  $("#bmCount").style.color = n ? "" : "var(--bad)";
+}
+function benchPickerEnabled(on){
+  $("#bmWrap").classList.toggle("off",!on);
+  $("#bmNote").textContent = on
+    ? "Leave everything checked for the full practice test. Narrowing to one benchmark keeps only those questions and the passages they come from — note that most benchmarks are spread across three or four passages, so the reading load stays high."
+    : "Test Mode always runs the full 43 questions, so a test is always the real thing. Switch to Practice Mode to drill specific benchmarks.";
+}
+
+/* ============================================================
+   RESIZABLE SPLIT
+   ============================================================ */
+var SPLIT = {pct:50, view:"split"};
+function applySplit(){
+  var el=$("#split");
+  el.classList.toggle("only-pass", SPLIT.view==="pass");
+  el.classList.toggle("only-q",    SPLIT.view==="q");
+  if(SPLIT.view==="split") el.style.setProperty("--split", SPLIT.pct+"%");
+  $$("#viewCtl button").forEach(function(b){
+    b.classList.toggle("on", b.getAttribute("data-view")===SPLIT.view);
+  });
+  var bar=$("#dragbar");
+  if(bar) bar.setAttribute("aria-valuenow", Math.round(SPLIT.pct));
+  hidePop();
+}
+function setView(v){ SPLIT.view=v; applySplit(); }
+function setPct(p){
+  SPLIT.pct=Math.max(20,Math.min(80,p));
+  if(SPLIT.view!=="split") SPLIT.view="split";
+  applySplit();
+}
+buildBenchPicker();
+
+(function initSplit(){
+  $$("#viewCtl button").forEach(function(b){
+    b.addEventListener("click",function(){ setView(b.getAttribute("data-view")); });
+  });
+  var bar=$("#dragbar"); if(!bar) return;
+  bar.setAttribute("aria-valuemin","20");
+  bar.setAttribute("aria-valuemax","80");
+  var dragging=false;
+  function move(e){
+    if(!dragging) return;
+    var r=$("#split").getBoundingClientRect();
+    var x=(e.touches?e.touches[0].clientX:e.clientX)-r.left;
+    setPct(x/r.width*100);
+  }
+  bar.addEventListener("pointerdown",function(e){
+    dragging=true; bar.classList.add("dragging");
+    document.body.classList.add("resizing");
+    bar.setPointerCapture && bar.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+  document.addEventListener("pointermove",move);
+  document.addEventListener("pointerup",function(){
+    if(!dragging) return;
+    dragging=false; bar.classList.remove("dragging");
+    document.body.classList.remove("resizing");
+  });
+  bar.addEventListener("dblclick",function(){ SPLIT.pct=50; setView("split"); });
+  bar.addEventListener("keydown",function(e){
+    if(e.key==="ArrowLeft"){ setPct(SPLIT.pct-4); e.preventDefault(); }
+    else if(e.key==="ArrowRight"){ setPct(SPLIT.pct+4); e.preventDefault(); }
+    else if(e.key==="Home"){ setView("pass"); e.preventDefault(); }
+    else if(e.key==="End"){ setView("q"); e.preventDefault(); }
+    else if(e.key==="Enter"||e.key===" "){ SPLIT.pct=50; setView("split"); e.preventDefault(); }
+  });
+})();
+
+/* ---------- SUBMISSION CODE ----------
+   Compact, checksummed record of the attempt. The checksum catches typos and
+   casual edits; it is not encryption, so treat the quiz package as the secure
+   option when a score has to be tamper-proof. */
+var CODE_VER="FASTR1";
+function answerString(){
+  return QUESTIONS.map(function(q){
+    var a=S.ans[q.n];
+    if(!a||!a.length) return "-";
+    return a.slice().sort(function(x,y){return x-y}).map(function(i){return LETTERS[i]}).join("");
+  }).join(".");
+}
+function checksum(str){
+  var h=5381;
+  for(var i=0;i<str.length;i++){ h=((h*33)^str.charCodeAt(i))>>>0; }
+  return h.toString(36).toUpperCase().slice(0,6);
+}
+function b64(str){
+  return btoa(unescape(encodeURIComponent(str))).replace(/=+$/,"");
+}
+function buildCode(){
+  var correct=QUESTIONS.filter(isRight).length;
+  var payload=[CODE_VER, "-", "-", S.mode,
+               String(S.elapsed), String(correct), String(ITEMS.length),
+               new Date().toISOString().slice(0,16), answerString()].join("|");
+  var body=b64(payload);
+  var code=body+"~"+checksum(payload);
+  var pct=Math.round(correct/ITEMS.length*100);
+  var lines=[
+    "FAST READING - FORM 1 - SUBMISSION",
+    "Mode:   "+(S.mode==="practice"?"Practice":"Test"),
+    "Score:  "+correct+" / "+ITEMS.length+"  ("+pct+"%)",
+    "Time:   "+Math.floor(S.elapsed/60)+"m "+(S.elapsed%60)+"s",
+    (S.filtered ? "Drill:  "+selectedCodes().sort().join(", ")+"  (not the full test)" : null),
+    "",
+    "--- verification code (do not edit) ---",
+    code
+  ];
+  return lines.filter(function(x){return x!==null}).join("\n");
+}
+function fillCode(){ $("#subCode").value=buildCode(); }
+$("#btnCopyCode").addEventListener("click",function(){
+  var ta=$("#subCode"); ta.select(); ta.setSelectionRange(0,999999);
+  var ok=false;
+  try{ ok=document.execCommand("copy"); }catch(e){ ok=false; }
+  if(!ok && navigator.clipboard){ navigator.clipboard.writeText(ta.value).then(function(){
+    $("#copyNote").textContent="Copied. Paste it into the Canvas assignment."; }); return; }
+  $("#copyNote").textContent= ok ? "Copied. Paste it into the Canvas assignment."
+                                 : "Press Ctrl+C to copy the selected text.";
+});
+$("#btnDownloadCode").addEventListener("click",function(){
+  var blob=new Blob([$("#subCode").value],{type:"text/plain"});
+  var a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="FAST-Form1-results.txt";
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function(){URL.revokeObjectURL(a.href)},1000);
+  $("#copyNote").textContent="Downloaded. Attach the .txt to the Canvas assignment.";
+});
+
+
+/* ============================================================
+   READING SUPPORTS — glossary, cognate hints, background notes
+   ============================================================ */
+var SUP = {lang:null, notes:true, cognate:true, map:null, cognateSeen:false};
+
+function buildGlossMap(){
+  if(SUP.map) return SUP.map;
+  var m={};
+  WORDS.forEach(function(o,i){
+    var base=o.w.toLowerCase();
+    [base, base+"s", base+"es"].forEach(function(v){ if(!(v in m)) m[v]=i; });
+    if(/y$/.test(base)) m[base.replace(/y$/,"ies")]=i;
+    if(/e$/.test(base)) m[base.replace(/e$/,"ed")]=i;
+  });
+  SUP.map=m; return m;
+}
+function cleanTok(t){ return t.toLowerCase().replace(/[^a-z'-]/g,""); }
+
+/* decorate the rendered passage: glossary underlines + note markers */
+function applySupports(){
+  var host=$("#passageText"); if(!host) return;
+  var ws=$$("#passageText w");
+  var map=buildGlossMap();
+
+  /* --- multi-word glossary entries first (e.g. "extended family") --- */
+  var multi=[];
+  WORDS.forEach(function(o,i){ if(o.w.indexOf(" ")>0) multi.push({i:i, parts:o.w.toLowerCase().split(" ")}); });
+  var used={};
+  multi.forEach(function(mm){
+    for(var a=0;a+mm.parts.length<=ws.length;a++){
+      var ok=true;
+      for(var b=0;b<mm.parts.length;b++){ if(cleanTok(ws[a+b].textContent)!==mm.parts[b]){ok=false;break;} }
+      if(ok){ for(var b2=0;b2<mm.parts.length;b2++){ ws[a+b2].classList.add("gl");
+                ws[a+b2].setAttribute("data-gi",mm.i); used[a+b2]=1; } }
+    }
+  });
+  /* --- single words --- */
+  ws.forEach(function(w,idx){
+    if(used[idx]) return;
+    var k=cleanTok(w.textContent);
+    if(k && (k in map)){ w.classList.add("gl"); w.setAttribute("data-gi",map[k]); }
+  });
+
+  /* --- background notes --- */
+  $$("#passageText .noteflag").forEach(function(b){ b.remove(); });
+  if(!(SUP.notes && S.mode==="practice")) return;
+  var pid=S.curPass;
+  NOTES.forEach(function(n,ni){
+    if(n.p!==pid) return;
+    var parts=n.k.toLowerCase().split(/\s+/);
+    for(var a=0;a+parts.length<=ws.length;a++){
+      var ok=true;
+      for(var b=0;b<parts.length;b++){ if(cleanTok(ws[a+b].textContent)!==cleanTok(parts[b])){ok=false;break;} }
+      if(ok){
+        var last=ws[a+parts.length-1];
+        if(last.nextSibling && last.nextSibling.className==="noteflag") return;
+        var f=document.createElement("button");
+        f.className="noteflag"; f.textContent="i"; f.setAttribute("data-ni",ni);
+        f.setAttribute("aria-label","Background note: "+n.k);
+        last.parentNode.insertBefore(f, last.nextSibling);
+        return; /* first occurrence only */
+      }
+    }
+  });
+}
+
+/* --- popover --- */
+function hidePop(){ $("#pop").classList.remove("show"); }
+function showPop(html, anchor){
+  var p=$("#pop");
+  p.innerHTML='<button class="pclose" aria-label="Close">&times;</button>'+html;
+  p.classList.add("show");
+  var r=anchor.getBoundingClientRect();
+  var top=window.scrollY+r.bottom+8, left=window.scrollX+r.left;
+  p.style.top="0px"; p.style.left="0px";
+  var pw=p.offsetWidth, ph=p.offsetHeight;
+  if(left+pw>window.scrollX+document.documentElement.clientWidth-12)
+    left=window.scrollX+document.documentElement.clientWidth-pw-12;
+  if(left<window.scrollX+8) left=window.scrollX+8;
+  if(r.bottom+ph+16>document.documentElement.clientHeight) top=window.scrollY+r.top-ph-8;
+  p.style.top=top+"px"; p.style.left=left+"px";
+  p.querySelector(".pclose").addEventListener("click",hidePop);
+}
+function glossHTML(i){
+  var o=WORDS[i], h='<div class="ptag">Glossary</div><div class="pw">'+esc(o.w)+'</div>'+
+    '<div class="ps">'+esc(o.s)+'</div>';
+  if(SUP.lang){
+    var L=SUP.lang, t=L.t[i];
+    h+='<div class="pt"'+(L.rtl?' dir="rtl"':'')+'>'+esc(t)+'</div>'+
+       '<div class="mini" style="margin-top:5px">'+esc(L.n)+'</div>';
+    if(SUP.cognate && S.mode==="practice" && L.rom && o.cog){
+      if(!SUP.cognateSeen){
+        SUP.cognateSeen = true;
+        h+='<div class="pc"><b>What is a cognate?</b>Two words are cognates when they come from the same older root, so they look alike and mean nearly the same thing in both languages. “'+
+           esc(o.w)+'” and “'+esc(t)+'” are cognates. When an English word resembles one you already know, that resemblance is usually real — use it. Other cognates in these passages are marked the same way.</div>';
+      } else {
+        h+='<div class="pc pcmini"><b>Cognate</b>same root as “'+esc(t)+'”</div>';
+      }
+    }
+  }
+  return h;
+}
+$("#passageText").addEventListener("click",function(e){
+  var f=e.target.closest?e.target.closest(".noteflag"):null;
+  if(f){ e.preventDefault(); e.stopPropagation();
+    var n=NOTES[+f.getAttribute("data-ni")];
+    showPop('<div class="ptag">Background</div><div class="pw" style="font-size:15px">'+esc(n.k)+
+            '</div><div class="pn" style="margin-top:6px">'+esc(n.t)+'</div>', f);
+    return; }
+  if(S.hlOn||S.eraseOn) return;           /* highlighter owns the click */
+  var w=e.target.closest?e.target.closest("w.gl"):null;
+  if(!w) return;
+  showPop(glossHTML(+w.getAttribute("data-gi")), w);
+});
+document.addEventListener("click",function(e){
+  var p=$("#pop");
+  if(!p.classList.contains("show")) return;
+  if(p.contains(e.target)) return;
+  if(e.target.closest && (e.target.closest("w.gl")||e.target.closest(".noteflag"))) return;
+  hidePop();
+});
+document.addEventListener("keydown",function(e){ if(e.key==="Escape") hidePop(); });
+window.addEventListener("resize",hidePop);
+$("#passagePane .panel-body").addEventListener("scroll",hidePop);
+
+/* keyboard */
+document.addEventListener("keydown",function(e){
+  if($("#testScreen").style.display==="none")return;
+  if(e.target.tagName==="INPUT"||e.target.tagName==="SELECT")return;
+  if(e.key==="ArrowRight"){ if(S.i<ITEMS.length-1) go(S.i+1); }
+  else if(e.key==="ArrowLeft"){ if(S.i>0) go(S.i-1); }
+  else if(/^[a-eA-E]$/.test(e.key)){
+    var oi=LETTERS.indexOf(e.key.toUpperCase());
+    var q=ITEMS[S.i]; if(oi>=0&&oi<q.opts.length) pick(q,oi);
+  }
+});
+})();
+</script>
+</body>
+</html>
